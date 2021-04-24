@@ -67,6 +67,12 @@
 # NB: Developers should be aware that this script should remain compatible with
 # POSIX sh and Solaris sh. This means, in particular, no $(( )) and no $( ).
 
+#############
+# MemLiner control
+############
+ADD_INTO_CGROUP="cgexec  --sticky -g memory:memctl"
+
+
 # Unset any grep options that may include `--color=always` per say.
 # Using `unset GREP_OPTIONS` will also work on the non-deprecated use case
 # of setting a new grep alias.
@@ -195,18 +201,33 @@ launch_service()
     if [ "x$foreground" != "x" ]; then
         cassandra_parms="$cassandra_parms -Dcassandra-foreground=yes"
         if [ "x$JVM_ON_OUT_OF_MEMORY_ERROR_OPT" != "x" ]; then
-            exec $NUMACTL "$JAVA" $JVM_OPTS "$JVM_ON_OUT_OF_MEMORY_ERROR_OPT" $cassandra_parms -cp "$CLASSPATH" $props "$class"
+            
+            #exec $NUMACTL "$JAVA" $JVM_OPTS "$JVM_ON_OUT_OF_MEMORY_ERROR_OPT" $cassandra_parms -cp "$CLASSPATH" $props "$class"
+
+            echo "Specified JVM_ON_OUT_OF_MEMORY_ERROR_OPT : $JVM_ON_OUT_OF_MEMORY_ERROR_OPT"
+            exec ${ADD_INTO_CGROUP} $NUMACTL "$JAVA" $JVM_OPTS "$JVM_ON_OUT_OF_MEMORY_ERROR_OPT" $cassandra_parms -cp "$CLASSPATH" $props "$class"
         else
-            exec $NUMACTL "$JAVA" $JVM_OPTS $cassandra_parms -cp "$CLASSPATH" $props "$class"
+            #exec $NUMACTL "$JAVA" $JVM_OPTS $cassandra_parms -cp "$CLASSPATH" $props "$class"
+            echo "Start server and added into cgroup memctl" 
+            exec ${ADD_INTO_CGROUP} $NUMACTL "$JAVA" $JVM_OPTS $cassandra_parms -cp "$CLASSPATH" $props "$class"
         fi
     # Startup CassandraDaemon, background it, and write the pid.
     else
         if [ "x$JVM_ON_OUT_OF_MEMORY_ERROR_OPT" != "x" ]; then
-            exec $NUMACTL "$JAVA" $JVM_OPTS "$JVM_ON_OUT_OF_MEMORY_ERROR_OPT" $cassandra_parms -cp "$CLASSPATH" $props "$class" <&- &
+ 
+            #exec $NUMACTL "$JAVA" $JVM_OPTS "$JVM_ON_OUT_OF_MEMORY_ERROR_OPT" $cassandra_parms -cp "$CLASSPATH" $props "$class" <&- &
+
+            echo "Specified JVM_ON_OUT_OF_MEMORY_ERROR_OPT : $JVM_ON_OUT_OF_MEMORY_ERROR_OPT"
+            exec ${ADD_INTO_CGROUP} $NUMACTL "$JAVA" $JVM_OPTS "$JVM_ON_OUT_OF_MEMORY_ERROR_OPT" $cassandra_parms -cp "$CLASSPATH" $props "$class" <&- &
+
             [ ! -z "$pidpath" ] && printf "%d" $! > "$pidpath"
             true
         else
-            exec $NUMACTL "$JAVA" $JVM_OPTS $cassandra_parms -cp "$CLASSPATH" $props "$class" <&- &
+            #exec $NUMACTL "$JAVA" $JVM_OPTS $cassandra_parms -cp "$CLASSPATH" $props "$class" <&- &
+            
+            echo "Start server and added into cgroup memctl" 
+            exec ${ADD_INTO_CGROUP} $NUMACTL "$JAVA" $JVM_OPTS $cassandra_parms -cp "$CLASSPATH" $props "$class" <&- &            
+
             [ ! -z "$pidpath" ] && printf "%d" $! > "$pidpath"
             true
         fi
@@ -279,6 +300,7 @@ if [ "x$allow_root" != "xyes" ] ; then
 fi
 
 # Start up the service
+echo "launch_service $pidfile  $foreground $properties $classname "
 launch_service "$pidfile" "$foreground" "$properties" "$classname"
 
 exit $?
