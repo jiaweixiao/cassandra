@@ -26,7 +26,11 @@ And then we can insert/delete/search data via DB command line.
 # Run with YCSB
 Yahoo! Cloud Serving Benchmark (YCSB) is a testcase for database. We can use it to submit lots of DB requests to test the throughput of the Cassandra.
 
-## Create keyspace for YCSB
+## Server end
+
+Launch the Cassandra server on the CPU server.
+
+### Create keyspace for YCSB
 
 ```js
   # Connect to Cassandra
@@ -37,7 +41,7 @@ Yahoo! Cloud Serving Benchmark (YCSB) is a testcase for database. We can use it 
   create keyspace ycsb WITH REPLICATION = {'class' : 'SimpleStrategy', 'replication_factor' : 3 };
 ```
 
-## Create an in-memory usertable for YCSB
+### Create an in-memory usertable for YCSB
 
 ```js
 cqlsh> USE ycsb;
@@ -52,7 +56,12 @@ cqlsh:ycsb> SELECT * FROM usertable;
 
 ```
 
-## Load data for YCSB
+## Client end
+
+Run the request on another server. e.g., paso.
+Download the binary version ycsb on client. 
+
+### Load data for YCSB
 Choose a workload from YCSB/workloads to run. The workload defines the DB commandlines, e.g., read/update/insert/delete. 
 For memliner, we have some pre-defined workloads in repo, Benchmark/Cassandra/YCSB/workloads/.
 Please use the pre-built SH in repo ShellScript/Memliner/Cassandra/.
@@ -63,7 +72,7 @@ Please use the pre-built SH in repo ShellScript/Memliner/Cassandra/.
   bin/ycsb load cassandra-cql -p hosts="131.179.96.201" -s -P workloads/workloada
 ```
 
-## Run YCSB
+### Run YCSB
 
 Do operations on the loaded data.
 Please use the pre-built SH in repo ShellScript/Memliner/Cassandra/.
