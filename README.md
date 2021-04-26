@@ -72,4 +72,27 @@ Please use the pre-built SH in repo ShellScript/Memliner/Cassandra/.
   bin/ycsb run cassandra-cql -p hosts="131.179.96.201" -s -P workloads/workloada
 ```
 
+# More details
+
+## Add the Cassandra server into cgroup
+Modify the sh
+
+```js
+# 1) Modify the start sh to add the server into a cgroup
+cassandra/bin/cassandra
+
+#############
+# MemLiner control
+############
+ADD_INTO_CGROUP="cgexec  --sticky -g memory:memctl"
+
+# 2) Set the $ADD_INTO_CGROUP to null to remove the cassandra server from cgroup
+
+
+```
+
+
+
+
+
 
