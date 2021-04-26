@@ -30,6 +30,7 @@ Yahoo! Cloud Serving Benchmark (YCSB) is a testcase for database. We can use it 
 
 ```js
   # Connect to Cassandra
+  # Assume the Cassandra server runs on 131.179.96.201
   cqlsh 131.179.96.201 9042
   
   # Create a keyspace with name ycsb
@@ -53,8 +54,8 @@ cqlsh:ycsb> SELECT * FROM usertable;
 
 ## Load data for YCSB
 Choose a workload from YCSB/workloads to run. The workload defines the DB commandlines, e.g., read/update/insert/delete. 
-For memliner, we have some pre-defined workloads in repo, Benchmark.
-Please use the pre-built SH in repo ShellScrip/
+For memliner, we have some pre-defined workloads in repo, Benchmark/Cassandra/YCSB/workloads/.
+Please use the pre-built SH in repo ShellScript/Memliner/Cassandra/.
 
 ```js
   # Assume the Cassandra server runs on 131.179.96.201
@@ -64,6 +65,11 @@ Please use the pre-built SH in repo ShellScrip/
 
 ## Run YCSB
 
+Do operations on the loaded data.
+Please use the pre-built SH in repo ShellScript/Memliner/Cassandra/.
 
+```js
+  bin/ycsb run cassandra-cql -p hosts="131.179.96.201" -s -P workloads/workloada
+```
 
 
