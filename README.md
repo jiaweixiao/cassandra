@@ -9,7 +9,8 @@ The client is a temporary Java process, used to submit DB request.
 
 # Build
 cd Cassandra_dir
-ant
+
+ant -Duse.jdk11=true
 
 # Configuration
 cd Cassandra_dir/conf
