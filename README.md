@@ -47,8 +47,11 @@ rpc_address: 131.x.x.201
 
 # Basic operations
 
-/bin/cqlsh server_ip \
 And then we can insert/delete/search data via DB command line.
+Assume the server ip is 131.x.x.201
+```js
+/bin/cqlsh 131.x.x.201 \
+```
 
 
 # Run with YCSB
@@ -62,7 +65,7 @@ Launch the Cassandra server on the CPU server.
 
 ```js
   # Connect to Cassandra
-  # Assume the Cassandra server runs on 131.179.96.201
+  # Assume the Cassandra server runs on 131.x.x.201
   cqlsh 131.x.x.201 9042
   
   # Create a keyspace with name ycsb
@@ -95,7 +98,7 @@ For memliner, we have some pre-defined workloads in repo, Benchmark/Cassandra/YC
 Please use the pre-built SH in repo ShellScript/Memliner/Cassandra/.
 
 ```js
-  # Assume the Cassandra server runs on 131.179.96.201
+  # Assume the Cassandra server runs on 131.x.x.201
   # We are going to use the workload defiend in workloads/workloada
   bin/ycsb load cassandra-cql -p hosts="131.x.x.201" -s -P workloads/workloada
 ```
