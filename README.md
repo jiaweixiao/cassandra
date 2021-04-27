@@ -103,6 +103,28 @@ Please use the pre-built SH in repo ShellScript/Memliner/Cassandra/.
   bin/ycsb load cassandra-cql -p hosts="131.x.x.201" -s -P workloads/workloada
 ```
 
+Use  DB command line to check if the data is loaded into memtable correctlly.
+
+```js
+# use cqlsh terminal
+# 1. choose keyspace
+use ycsb;
+
+# 2. Show current tables
+desc tables;
+
+# 3. Check the number of rows of a table. Assume the table name is usrtable.
+select count(*) from usertable;
+
+# Results
+# If the table is too large, this will run a while
+ count
+----------
+ 10000000
+
+```
+
+
 ### Run YCSB
 
 Do operations on the loaded data.
