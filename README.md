@@ -18,6 +18,33 @@ cd Cassandra_dir/conf
 - cassandra.yaml Basic Cassandra configurations.
 - jvm11-server.options Java options, for Java 11 and higer.
 
+## IP of Cassandra server
+
+- cassandra.yaml assuming using ip 131.x.x.201
+```js
+# 1. seeds
+seed_provider:
+    # Addresses of hosts that are deemed contact points.
+    # Cassandra nodes use this list of hosts to find each other and learn
+    # the topology of the ring.  You must change this if you are running
+    # multiple nodes!
+    - class_name: org.apache.cassandra.locator.SimpleSeedProvider
+      parameters:
+          # seeds is actually a comma-delimited list of addresses.
+          # Ex: "<ip1>,<ip2>,<ip3>"
+          - seeds: "131.x.x.201:7000"
+
+
+# 2. listen_address
+listen_address: 131.x.x.201
+
+
+# 3. rpc_address 
+rpc_address: 131.x.x.201
+
+```
+
+
 # Basic operations
 
 /bin/cqlsh server_ip \
@@ -36,7 +63,7 @@ Launch the Cassandra server on the CPU server.
 ```js
   # Connect to Cassandra
   # Assume the Cassandra server runs on 131.179.96.201
-  cqlsh 131.179.96.201 9042
+  cqlsh 131.x.x.201 9042
   
   # Create a keyspace with name ycsb
   create keyspace ycsb WITH REPLICATION = {'class' : 'SimpleStrategy', 'replication_factor' : 3 };
@@ -70,7 +97,7 @@ Please use the pre-built SH in repo ShellScript/Memliner/Cassandra/.
 ```js
   # Assume the Cassandra server runs on 131.179.96.201
   # We are going to use the workload defiend in workloads/workloada
-  bin/ycsb load cassandra-cql -p hosts="131.179.96.201" -s -P workloads/workloada
+  bin/ycsb load cassandra-cql -p hosts="131.x.x.201" -s -P workloads/workloada
 ```
 
 ### Run YCSB
@@ -79,7 +106,7 @@ Do operations on the loaded data.
 Please use the pre-built SH in repo ShellScript/Memliner/Cassandra/.
 
 ```js
-  bin/ycsb run cassandra-cql -p hosts="131.179.96.201" -s -P workloads/workloada
+  bin/ycsb run cassandra-cql -p hosts="131.x.x.201" -s -P workloads/workloada
 ```
 
 # More details
