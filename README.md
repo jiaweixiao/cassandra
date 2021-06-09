@@ -140,6 +140,10 @@ Please use the pre-built SH in repo ShellScript/Memliner/Cassandra/.
   bin/ycsb run cassandra-cql -p hosts="131.x.x.201" -s -P workloads/workloada
 ```
 
+The pre-defined workloads are in the repo, Benchmark/Cassandra/YCSB/workloads/
+
+The pre-defiend shellscripts are in the repo, ShellScript/Memliner/Cassandra/
+
 # More details
 
 ## Add the Cassandra server into cgroup
