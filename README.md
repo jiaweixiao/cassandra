@@ -47,10 +47,16 @@ rpc_address: 131.x.x.201
 
 # Basic operations
 
+Launch the DB server
+````js
+bin/cassandra
+````
+
+
 And then we can insert/delete/search data via DB command line.
 Assume the server ip is 131.x.x.201
 ```js
-/bin/cqlsh 131.x.x.201 \
+bin/cqlsh 131.x.x.201 \
 ```
 
 
