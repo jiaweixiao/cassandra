@@ -164,6 +164,9 @@ ADD_INTO_CGROUP="cgexec  --sticky -g memory:memctl"
 ```
 
 
+## Cassandra disabled swapping by pretouching and pinning the Java heap in memory
+We need to modify the source code of cassandra to disable the Java heap pinning mechanism. Check the commit for more details.
+
 
 
 
