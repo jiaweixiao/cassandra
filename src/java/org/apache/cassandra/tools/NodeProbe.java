@@ -1665,7 +1665,7 @@ public class NodeProbe implements AutoCloseable
 
     public Double[] metricPercentilesAsArray(CassandraMetricsRegistry.JmxHistogramMBean metric)
     {
-        return new Double[]{ metric.get50thPercentile(),
+        return new Double[]{ Double.valueOf(metric.get50thPercentile()),
                 Double.valueOf(metric.get75thPercentile()),
                 Double.valueOf(metric.get95thPercentile()),
                 Double.valueOf(metric.get98thPercentile()),
@@ -1674,6 +1674,26 @@ public class NodeProbe implements AutoCloseable
                 Double.valueOf(metric.getMax())};
     }
 
+    /** 
+     * xiaojiawei
+     * July 22, 2021
+     * Dump metric.
+     */
+    public Double[] metricPercentilesAsArrayProfiling(CassandraMetricsRegistry.JmxTimerMBean metric)
+    {
+        return new Double[]{ Double.valueOf(metric.get50thPercentile()),
+                             Double.valueOf(metric.get75thPercentile()),
+                             Double.valueOf(metric.get95thPercentile()),
+                             Double.valueOf(metric.get98thPercentile()),
+                             Double.valueOf(metric.get99thPercentile()),
+                             Double.valueOf(metric.get999thPercentile()),
+                             Double.valueOf(metric.getMin()),
+                             Double.valueOf(metric.getMax()),
+                             Double.valueOf(metric.getMean()),
+                             Double.valueOf(metric.getStdDev()),
+                             Double.valueOf(metric.getCount()),
+                             Double.valueOf(metric.getOneMinuteRate())};
+    }
     public Double[] metricPercentilesAsArray(CassandraMetricsRegistry.JmxTimerMBean metric)
     {
         return new Double[]{ Double.valueOf(metric.get50thPercentile()),

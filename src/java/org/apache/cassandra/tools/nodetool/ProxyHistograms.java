@@ -28,21 +28,32 @@ import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 @Command(name = "proxyhistograms", description = "Print statistic histograms for network operations")
 public class ProxyHistograms extends NodeToolCmd
 {
+    /** 
+     * xiaojiawei
+     * July 22, 2021
+     * Thread cpu and user latency metrics 
+     */
     @Override
     public void execute(NodeProbe probe)
     {
         PrintStream out = probe.output().out;
-        String[] percentiles = {"50%", "75%", "95%", "98%", "99%", "Min", "Max"};
-        Double[] readLatency = probe.metricPercentilesAsArray(probe.getProxyMetric("Read"));
-        Double[] writeLatency = probe.metricPercentilesAsArray(probe.getProxyMetric("Write"));
-        Double[] rangeLatency = probe.metricPercentilesAsArray(probe.getProxyMetric("RangeSlice"));
-        Double[] casReadLatency = probe.metricPercentilesAsArray(probe.getProxyMetric("CASRead"));
-        Double[] casWriteLatency = probe.metricPercentilesAsArray(probe.getProxyMetric("CASWrite"));
-        Double[] viewWriteLatency = probe.metricPercentilesAsArray(probe.getProxyMetric("ViewWrite"));
+        String[] percentiles = {"50%", "75%", "95%", "98%", "99%", "99.9%", "Min", "Max",
+                                "Mean", "StdDev", "Count", "OneMinRate"};
+
+        Double[] readLatency = probe.metricPercentilesAsArrayProfiling(probe.getProxyMetric("Read"));
+        Double[] writeLatency = probe.metricPercentilesAsArrayProfiling(probe.getProxyMetric("Write"));
+        Double[] readLatencyCpu = probe.metricPercentilesAsArrayProfiling(probe.getProxyMetric("ReadCpu"));
+        Double[] readLatencySys = probe.metricPercentilesAsArrayProfiling(probe.getProxyMetric("ReadSys"));
+        Double[] writeLatencyCpu = probe.metricPercentilesAsArrayProfiling(probe.getProxyMetric("WriteCpu"));
+        Double[] writeLatencySys = probe.metricPercentilesAsArrayProfiling(probe.getProxyMetric("WriteSys"));
+        long[] readValues = probe.getProxyMetric("Read").values();
+        long[] readValuesCpu = probe.getProxyMetric("ReadCpu").values();
+        long[] readValuesSys = probe.getProxyMetric("ReadSys").values();
 
         out.println("proxy histograms");
         out.println(format("%-10s%19s%19s%19s%19s%19s%19s",
-                "Percentile", "Read Latency", "Write Latency", "Range Latency", "CAS Read Latency", "CAS Write Latency", "View Write Latency"));
+                "Percentile", "Read Latency", "Read Cpu", "Read Sys", 
+                "Write Latency", "Write Cpu", "Write Sys"));
         out.println(format("%-10s%19s%19s%19s%19s%19s%19s",
                 "", "(micros)", "(micros)", "(micros)", "(micros)", "(micros)", "(micros)"));
         for (int i = 0; i < percentiles.length; i++)
@@ -50,12 +61,59 @@ public class ProxyHistograms extends NodeToolCmd
             out.println(format("%-10s%19.2f%19.2f%19.2f%19.2f%19.2f%19.2f",
                     percentiles[i],
                     readLatency[i],
+                    readLatencyCpu[i],
+                    readLatencySys[i],
                     writeLatency[i],
-                    rangeLatency[i],
-                    casReadLatency[i],
-                    casWriteLatency[i],
-                    viewWriteLatency[i]));
+                    writeLatencyCpu[i],
+                    writeLatencySys[i]));
         }
-        out.println();
+        // out.println("Dump Read values:");
+        // for (int i = 0; i < readValues.length; i++)
+        // {
+        //     out.print(format("%.2f ", Double.valueOf(readValues[i])));
+        // }
+        // out.println();
+        // out.println("Dump Read Cpu values:");
+        // for (int i = 0; i < readValuesCpu.length; i++)
+        // {
+        //     out.print(format("%.2f ", Double.valueOf(readValuesCpu[i])));
+        // }
+        // out.println();
+        // out.println("Dump Read Sys values:");
+        // for (int i = 0; i < readValuesSys.length; i++)
+        // {
+        //     out.print(format("%.2f ", Double.valueOf(readValuesSys[i])));
+        // }
+        // out.println();
     }
+    // @Override
+    // public void execute(NodeProbe probe)
+    // {
+    //     PrintStream out = probe.output().out;
+    //     String[] percentiles = {"50%", "75%", "95%", "98%", "99%", "Min", "Max"};
+    //     Double[] readLatency = probe.metricPercentilesAsArray(probe.getProxyMetric("Read"));
+    //     Double[] writeLatency = probe.metricPercentilesAsArray(probe.getProxyMetric("Write"));
+    //     Double[] rangeLatency = probe.metricPercentilesAsArray(probe.getProxyMetric("RangeSlice"));
+    //     Double[] casReadLatency = probe.metricPercentilesAsArray(probe.getProxyMetric("CASRead"));
+    //     Double[] casWriteLatency = probe.metricPercentilesAsArray(probe.getProxyMetric("CASWrite"));
+    //     Double[] viewWriteLatency = probe.metricPercentilesAsArray(probe.getProxyMetric("ViewWrite"));
+    
+    //     out.println("proxy histograms");
+    //     out.println(format("%-10s%19s%19s%19s%19s%19s%19s",
+    //             "Percentile", "Read Latency", "Write Latency", "Range Latency", "CAS Read Latency", "CAS Write Latency", "View Write Latency"));
+    //     out.println(format("%-10s%19s%19s%19s%19s%19s%19s",
+    //             "", "(micros)", "(micros)", "(micros)", "(micros)", "(micros)", "(micros)"));
+    //     for (int i = 0; i < percentiles.length; i++)
+    //     {
+    //         out.println(format("%-10s%19.2f%19.2f%19.2f%19.2f%19.2f%19.2f",
+    //                 percentiles[i],
+    //                 readLatency[i],
+    //                 writeLatency[i],
+    //                 rangeLatency[i],
+    //                 casReadLatency[i],
+    //                 casWriteLatency[i],
+    //                 viewWriteLatency[i]));
+    //     }
+    //     out.println();
+    // }
 }

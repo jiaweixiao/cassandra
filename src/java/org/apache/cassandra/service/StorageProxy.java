@@ -17,6 +17,9 @@
  */
 package org.apache.cassandra.service;
 
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadMXBean;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -192,6 +195,19 @@ public class StorageProxy implements StorageProxyMBean
     private static final Map<ConsistencyLevel, ClientWriteRequestMetrics> writeMetricsMap = new EnumMap<>(ConsistencyLevel.class);
 
     private static final double CONCURRENT_SUBREQUESTS_MARGIN = 0.10;
+
+    /** 
+     * xiaojiawei
+     * July 22, 2021
+     * Fields to record thread cpu and user latency.
+     * Helper functions to use ThreadMXBean.
+     */
+    private static final ClientRequestMetrics readMetricsCpu = new ClientRequestMetrics("ReadCpu");
+    private static final ClientWriteRequestMetrics writeMetricsCpu = new ClientWriteRequestMetrics("WriteCpu");
+    public static long getCpuTime(){
+        ThreadMXBean bean = ManagementFactory.getThreadMXBean();
+        return bean.isCurrentThreadCpuTimeSupported() ? bean.getCurrentThreadCpuTime() : 0L;
+    }
 
     /**
      * Introduce a maximum number of sub-ranges that the coordinator can request in parallel for range queries. Previously
@@ -906,6 +922,96 @@ public class StorageProxy implements StorageProxyMBean
         }
     }
 
+    /** 
+     * xiaojiawei
+     * July 22, 2021
+     * mutate() with thread cpu and user latency metrics 
+     */
+    public static void mutateProfiling(List<? extends IMutation> mutations, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
+    throws UnavailableException, OverloadedException, WriteTimeoutException, WriteFailureException
+    {
+        Tracing.trace("Determining replicas for mutation");
+        final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getLocalDatacenter();
+
+        long startTime = System.nanoTime();
+
+        long startTimeCpu = getCpuTime();
+
+        List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(mutations.size());
+        WriteType plainWriteType = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
+
+        try
+        {
+            for (IMutation mutation : mutations)
+            {
+                if (mutation instanceof CounterMutation)
+                    responseHandlers.add(mutateCounter((CounterMutation)mutation, localDataCenter, queryStartNanoTime));
+                else
+                    responseHandlers.add(performWrite(mutation, consistencyLevel, localDataCenter, standardWritePerformer, null, plainWriteType, queryStartNanoTime));
+            }
+
+            // upgrade to full quorum any failed cheap quorums
+            for (int i = 0 ; i < mutations.size() ; ++i)
+            {
+                if (!(mutations.get(i) instanceof CounterMutation)) // at the moment, only non-counter writes support cheap quorums
+                    responseHandlers.get(i).maybeTryAdditionalReplicas(mutations.get(i), standardWritePerformer, localDataCenter);
+            }
+
+            // wait for writes.  throws TimeoutException if necessary
+            for (AbstractWriteResponseHandler<IMutation> responseHandler : responseHandlers)
+                responseHandler.get();
+        }
+        catch (WriteTimeoutException|WriteFailureException ex)
+        {
+            if (consistencyLevel == ConsistencyLevel.ANY)
+            {
+                hintMutations(mutations);
+            }
+            else
+            {
+                if (ex instanceof WriteFailureException)
+                {
+                    writeMetrics.failures.mark();
+                    writeMetricsMap.get(consistencyLevel).failures.mark();
+                    WriteFailureException fe = (WriteFailureException)ex;
+                    Tracing.trace("Write failure; received {} of {} required replies, failed {} requests",
+                                  fe.received, fe.blockFor, fe.failureReasonByEndpoint.size());
+                }
+                else
+                {
+                    writeMetrics.timeouts.mark();
+                    writeMetricsMap.get(consistencyLevel).timeouts.mark();
+                    WriteTimeoutException te = (WriteTimeoutException)ex;
+                    Tracing.trace("Write timeout; received {} of {} required replies", te.received, te.blockFor);
+                }
+                throw ex;
+            }
+        }
+        catch (UnavailableException e)
+        {
+            writeMetrics.unavailables.mark();
+            writeMetricsMap.get(consistencyLevel).unavailables.mark();
+            Tracing.trace("Unavailable");
+            throw e;
+        }
+        catch (OverloadedException e)
+        {
+            writeMetrics.unavailables.mark();
+            writeMetricsMap.get(consistencyLevel).unavailables.mark();
+            Tracing.trace("Overloaded");
+            throw e;
+        }
+        finally
+        {
+            long latency = System.nanoTime() - startTime;
+            long latencyCpu = getCpuTime() - startTimeCpu;
+            writeMetrics.addNano(latency);
+            writeMetricsCpu.addNano(latencyCpu);
+            writeMetricsMap.get(consistencyLevel).addNano(latency);
+            updateCoordinatorWriteLatencyTableMetric(mutations, latency);
+        }
+    }
+
     /**
      * Hint all the mutations (except counters, which can't be safely retried).  This means
      * we'll re-hint any successful ones; doesn't seem worth it to track individual success
@@ -1075,13 +1181,13 @@ public class StorageProxy implements StorageProxyMBean
         writeMetricsMap.get(consistencyLevel).mutationSize.update(size);
 
         if (augmented != null)
-            mutateAtomically(augmented, consistencyLevel, updatesView, queryStartNanoTime);
+            mutateAtomicallyProfiling(augmented, consistencyLevel, updatesView, queryStartNanoTime);
         else
         {
             if (mutateAtomically || updatesView)
-                mutateAtomically((Collection<Mutation>) mutations, consistencyLevel, updatesView, queryStartNanoTime);
+                mutateAtomicallyProfiling((Collection<Mutation>) mutations, consistencyLevel, updatesView, queryStartNanoTime);
             else
-                mutate(mutations, consistencyLevel, queryStartNanoTime);
+                mutateProfiling(mutations, consistencyLevel, queryStartNanoTime);
         }
     }
 
@@ -1176,6 +1282,99 @@ public class StorageProxy implements StorageProxyMBean
         {
             long latency = System.nanoTime() - startTime;
             writeMetrics.addNano(latency);
+            writeMetricsMap.get(consistency_level).addNano(latency);
+            updateCoordinatorWriteLatencyTableMetric(mutations, latency);
+        }
+    }
+
+    /** 
+     * xiaojiawei
+     * July 22, 2021
+     * mutateAtomically() with thread cpu and user latency metrics 
+     */
+    public static void mutateAtomicallyProfiling(Collection<Mutation> mutations,
+                                        ConsistencyLevel consistency_level,
+                                        boolean requireQuorumForRemove,
+                                        long queryStartNanoTime)
+    throws UnavailableException, OverloadedException, WriteTimeoutException
+    {
+        Tracing.trace("Determining replicas for atomic batch");
+        long startTime = System.nanoTime();
+        long startTimeCpu = getCpuTime();
+
+        List<WriteResponseHandlerWrapper> wrappers = new ArrayList<WriteResponseHandlerWrapper>(mutations.size());
+
+        if (mutations.stream().anyMatch(mutation -> Keyspace.open(mutation.getKeyspaceName()).getReplicationStrategy().hasTransientReplicas()))
+            throw new AssertionError("Logged batches are unsupported with transient replication");
+
+        try
+        {
+
+            // If we are requiring quorum nodes for removal, we upgrade consistency level to QUORUM unless we already
+            // require ALL, or EACH_QUORUM. This is so that *at least* QUORUM nodes see the update.
+            ConsistencyLevel batchConsistencyLevel = requireQuorumForRemove
+                                                     ? ConsistencyLevel.QUORUM
+                                                     : consistency_level;
+
+            switch (consistency_level)
+            {
+                case ALL:
+                case EACH_QUORUM:
+                    batchConsistencyLevel = consistency_level;
+            }
+
+            ReplicaPlan.ForTokenWrite replicaPlan = ReplicaPlans.forBatchlogWrite(batchConsistencyLevel == ConsistencyLevel.ANY);
+
+            final UUID batchUUID = UUIDGen.getTimeUUID();
+            BatchlogCleanup cleanup = new BatchlogCleanup(mutations.size(),
+                                                          () -> asyncRemoveFromBatchlog(replicaPlan, batchUUID));
+
+            // add a handler for each mutation - includes checking availability, but doesn't initiate any writes, yet
+            for (Mutation mutation : mutations)
+            {
+                WriteResponseHandlerWrapper wrapper = wrapBatchResponseHandler(mutation,
+                                                                               consistency_level,
+                                                                               batchConsistencyLevel,
+                                                                               WriteType.BATCH,
+                                                                               cleanup,
+                                                                               queryStartNanoTime);
+                // exit early if we can't fulfill the CL at this time.
+                wrappers.add(wrapper);
+            }
+
+            // write to the batchlog
+            syncWriteToBatchlog(mutations, replicaPlan, batchUUID, queryStartNanoTime);
+
+            // now actually perform the writes and wait for them to complete
+            syncWriteBatchedMutations(wrappers, Stage.MUTATION);
+        }
+        catch (UnavailableException e)
+        {
+            writeMetrics.unavailables.mark();
+            writeMetricsMap.get(consistency_level).unavailables.mark();
+            Tracing.trace("Unavailable");
+            throw e;
+        }
+        catch (WriteTimeoutException e)
+        {
+            writeMetrics.timeouts.mark();
+            writeMetricsMap.get(consistency_level).timeouts.mark();
+            Tracing.trace("Write timeout; received {} of {} required replies", e.received, e.blockFor);
+            throw e;
+        }
+        catch (WriteFailureException e)
+        {
+            writeMetrics.failures.mark();
+            writeMetricsMap.get(consistency_level).failures.mark();
+            Tracing.trace("Write failure; received {} of {} required replies", e.received, e.blockFor);
+            throw e;
+        }
+        finally
+        {
+            long latency = System.nanoTime() - startTime;
+            long latencyCpu = getCpuTime() - startTimeCpu;
+            writeMetrics.addNano(latency);
+            writeMetricsCpu.addNano(latencyCpu);
             writeMetricsMap.get(consistency_level).addNano(latency);
             updateCoordinatorWriteLatencyTableMetric(mutations, latency);
         }
@@ -1752,8 +1951,8 @@ public class StorageProxy implements StorageProxyMBean
         }
 
         return consistencyLevel.isSerialConsistency()
-             ? readWithPaxos(group, consistencyLevel, state, queryStartNanoTime)
-             : readRegular(group, consistencyLevel, queryStartNanoTime);
+             ? readWithPaxosProfiling(group, consistencyLevel, state, queryStartNanoTime)
+             : readRegularProfiling(group, consistencyLevel, queryStartNanoTime);
     }
 
     private static PartitionIterator readWithPaxos(SinglePartitionReadCommand.Group group, ConsistencyLevel consistencyLevel, ClientState state, long queryStartNanoTime)
@@ -1841,6 +2040,99 @@ public class StorageProxy implements StorageProxyMBean
         return result;
     }
 
+    /**
+     * xiaojiawei
+     * July 22, 2021
+     * readwithPaxos() with thread cpu and user latency metrics 
+     */
+    private static PartitionIterator readWithPaxosProfiling(SinglePartitionReadCommand.Group group, ConsistencyLevel consistencyLevel, ClientState state, long queryStartNanoTime)
+    throws InvalidRequestException, UnavailableException, ReadFailureException, ReadTimeoutException
+    {
+        assert state != null;
+        if (group.queries.size() > 1)
+            throw new InvalidRequestException("SERIAL/LOCAL_SERIAL consistency may only be requested for one partition at a time");
+
+        long start = System.nanoTime();
+        long startCpu = getCpuTime();
+        SinglePartitionReadCommand command = group.queries.get(0);
+        TableMetadata metadata = command.metadata();
+        DecoratedKey key = command.partitionKey();
+
+        PartitionIterator result = null;
+        try
+        {
+            final ConsistencyLevel consistencyForReplayCommitsOrFetch = consistencyLevel == ConsistencyLevel.LOCAL_SERIAL
+                                                                        ? ConsistencyLevel.LOCAL_QUORUM
+                                                                        : ConsistencyLevel.QUORUM;
+
+            try
+            {
+                // Commit an empty update to make sure all in-progress updates that should be finished first is, _and_
+                // that no other in-progress can get resurrected.
+                Supplier<Pair<PartitionUpdate, RowIterator>> updateProposer =
+                    disableSerialReadLinearizability
+                    ? () -> null
+                    : () -> Pair.create(PartitionUpdate.emptyUpdate(metadata, key), null);
+                // When replaying, we commit at quorum/local quorum, as we want to be sure the following read (done at
+                // quorum/local_quorum) sees any replayed updates. Our own update is however empty, and those don't even
+                // get committed due to an optimiation described in doPaxos/beingRepairAndPaxos, so the commit
+                // consistency is irrelevant (we use ANY just to emphasis that we don't wait on our commit).
+                doPaxos(metadata,
+                        key,
+                        consistencyLevel,
+                        consistencyForReplayCommitsOrFetch,
+                        ConsistencyLevel.ANY,
+                        state,
+                        start,
+                        casReadMetrics,
+                        updateProposer);
+            }
+            catch (WriteTimeoutException e)
+            {
+                throw new ReadTimeoutException(consistencyLevel, 0, consistencyLevel.blockFor(Keyspace.open(metadata.keyspace)), false);
+            }
+            catch (WriteFailureException e)
+            {
+                throw new ReadFailureException(consistencyLevel, e.received, e.blockFor, false, e.failureReasonByEndpoint);
+            }
+
+            result = fetchRows(group.queries, consistencyForReplayCommitsOrFetch, queryStartNanoTime);
+        }
+        catch (UnavailableException e)
+        {
+            readMetrics.unavailables.mark();
+            casReadMetrics.unavailables.mark();
+            readMetricsMap.get(consistencyLevel).unavailables.mark();
+            throw e;
+        }
+        catch (ReadTimeoutException e)
+        {
+            readMetrics.timeouts.mark();
+            casReadMetrics.timeouts.mark();
+            readMetricsMap.get(consistencyLevel).timeouts.mark();
+            throw e;
+        }
+        catch (ReadFailureException e)
+        {
+            readMetrics.failures.mark();
+            casReadMetrics.failures.mark();
+            readMetricsMap.get(consistencyLevel).failures.mark();
+            throw e;
+        }
+        finally
+        {
+            long latency = System.nanoTime() - start;
+            long latencyCpu = getCpuTime() - startCpu;
+            readMetrics.addNano(latency);
+            readMetricsCpu.addNano(latencyCpu);
+            casReadMetrics.addNano(latency);
+            readMetricsMap.get(consistencyLevel).addNano(latency);
+            Keyspace.open(metadata.keyspace).getColumnFamilyStore(metadata.name).metric.coordinatorReadLatency.update(latency, TimeUnit.NANOSECONDS);
+        }
+
+        return result;
+    }
+
     @SuppressWarnings("resource")
     private static PartitionIterator readRegular(SinglePartitionReadCommand.Group group, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
@@ -1880,6 +2172,60 @@ public class StorageProxy implements StorageProxyMBean
         {
             long latency = System.nanoTime() - start;
             readMetrics.addNano(latency);
+            readMetricsMap.get(consistencyLevel).addNano(latency);
+            // TODO avoid giving every command the same latency number.  Can fix this in CASSADRA-5329
+            for (ReadCommand command : group.queries)
+                Keyspace.openAndGetStore(command.metadata()).metric.coordinatorReadLatency.update(latency, TimeUnit.NANOSECONDS);
+        }
+    }
+
+    /** 
+     * xiaojiawei
+     * July 22, 2021
+     * readRegular() with thread cpu and user latency metrics 
+     */
+    @SuppressWarnings("resource")
+    private static PartitionIterator readRegularProfiling(SinglePartitionReadCommand.Group group, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
+    throws UnavailableException, ReadFailureException, ReadTimeoutException
+    {
+        long start = System.nanoTime();
+        long startCpu = getCpuTime();
+        try
+        {
+            PartitionIterator result = fetchRows(group.queries, consistencyLevel, queryStartNanoTime);
+            // Note that the only difference between the command in a group must be the partition key on which
+            // they applied.
+            boolean enforceStrictLiveness = group.queries.get(0).metadata().enforceStrictLiveness();
+            // If we have more than one command, then despite each read command honoring the limit, the total result
+            // might not honor it and so we should enforce it
+            if (group.queries.size() > 1)
+                result = group.limits().filter(result, group.nowInSec(), group.selectsFullPartition(), enforceStrictLiveness);
+            return result;
+        }
+        catch (UnavailableException e)
+        {
+            readMetrics.unavailables.mark();
+            readMetricsMap.get(consistencyLevel).unavailables.mark();
+            throw e;
+        }
+        catch (ReadTimeoutException e)
+        {
+            readMetrics.timeouts.mark();
+            readMetricsMap.get(consistencyLevel).timeouts.mark();
+            throw e;
+        }
+        catch (ReadFailureException e)
+        {
+            readMetrics.failures.mark();
+            readMetricsMap.get(consistencyLevel).failures.mark();
+            throw e;
+        }
+        finally
+        {
+            long latency = System.nanoTime() - start;
+            long latencyCpu = getCpuTime() - startCpu;
+            readMetrics.addNano(latency);
+            readMetricsCpu.addNano(latencyCpu);
             readMetricsMap.get(consistencyLevel).addNano(latency);
             // TODO avoid giving every command the same latency number.  Can fix this in CASSADRA-5329
             for (ReadCommand command : group.queries)
