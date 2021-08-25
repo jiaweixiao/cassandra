@@ -119,6 +119,11 @@ public class NativeLibraryWindows implements NativeLibraryWrapper
         return GetCurrentProcessId();
     }
 
+    public long callGettid() throws UnsatisfiedLinkError, RuntimeException
+    {
+        return -1;
+    }
+
     public boolean isAvailable()
     {
         return available;

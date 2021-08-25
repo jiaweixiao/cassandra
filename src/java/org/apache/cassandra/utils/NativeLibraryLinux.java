@@ -78,6 +78,7 @@ public class NativeLibraryLinux implements NativeLibraryWrapper
     private static native int close(int fd) throws LastErrorException;
     private static native Pointer strerror(int errnum) throws LastErrorException;
     private static native long getpid() throws LastErrorException;
+    private static native long gettid() throws LastErrorException;
 
     public int callMlockall(int flags) throws UnsatisfiedLinkError, RuntimeException
     {
@@ -122,6 +123,11 @@ public class NativeLibraryLinux implements NativeLibraryWrapper
     public long callGetpid() throws UnsatisfiedLinkError, RuntimeException
     {
         return getpid();
+    }
+
+    public long callGettid() throws UnsatisfiedLinkError, RuntimeException
+    {
+        return gettid();
     }
 
     public boolean isAvailable()

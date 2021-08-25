@@ -425,4 +425,18 @@ public final class NativeLibrary
 
         return -1;
     }
+
+    public static long getThreadID()
+    {
+        try
+        {
+            return wrappedLibrary.callGettid();
+        }
+        catch (Exception e)
+        {
+            logger.info("Failed to get TID from JNA", e);
+        }
+
+        return -1;
+    }
 }

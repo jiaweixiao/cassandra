@@ -124,6 +124,11 @@ public class NativeLibraryDarwin implements NativeLibraryWrapper
         return getpid();
     }
 
+    public long callGettid() throws UnsatisfiedLinkError, RuntimeException
+    {
+        return -1;
+    }
+
     public boolean isAvailable()
     {
         return available;
