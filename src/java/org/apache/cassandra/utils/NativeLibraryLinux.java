@@ -78,7 +78,14 @@ public class NativeLibraryLinux implements NativeLibraryWrapper
     private static native int close(int fd) throws LastErrorException;
     private static native Pointer strerror(int errnum) throws LastErrorException;
     private static native long getpid() throws LastErrorException;
-    private static native long gettid() throws LastErrorException;
+    private static native long syscall(int number, Object... args) throws LastErrorException;
+    /**
+     * Check syscall number in
+     *  [intel x86_64] /usr/include/asm/unistd_64.h
+     *  [amd   x86_64] /usr/include/asm-generic/unistd.h
+     * Here 186 is for intel x86_64.
+    */
+    private static final int __NR_gettid = 186;
 
     public int callMlockall(int flags) throws UnsatisfiedLinkError, RuntimeException
     {
@@ -127,7 +134,7 @@ public class NativeLibraryLinux implements NativeLibraryWrapper
 
     public long callGettid() throws UnsatisfiedLinkError, RuntimeException
     {
-        return gettid();
+        return syscall(__NR_gettid);
     }
 
     public boolean isAvailable()
