@@ -324,6 +324,32 @@ public abstract class Tracing implements ExecutorLocal<TraceState>
         state.trace(format, args);
     }
 
+    /**
+     * xiaojiawei
+     * Aug 24, 2021
+     * [tracing pagefault latency]
+     * Used to get latency from /proc/pid/task/tid/pf_stats.
+     * Start reads and stores the latency to temporary variables. 
+     * End reads and calculates the difference and then inserts it to table. 
+     */
+    public static void traceStart(String message)
+    {
+        final TraceState state = instance.get();
+        if (state == null) // inline isTracing to avoid implicit two calls to state.get()
+            return;
+
+        state.traceStart(message);
+    }
+    
+    public static void traceEnd(String message)
+    {
+        final TraceState state = instance.get();
+        if (state == null) // inline isTracing to avoid implicit two calls to state.get()
+            return;
+
+        state.traceEnd(message);
+    }
+
     // normal traces get zero-, one-, and two-argument overloads so common case doesn't need to create varargs array
     public static void trace(String message)
     {

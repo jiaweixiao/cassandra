@@ -38,6 +38,7 @@ import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.service.StorageProxy;
 import org.apache.cassandra.utils.JVMStabilityInspector;
 import org.apache.cassandra.utils.WrappedRunnable;
+import org.apache.cassandra.utils.NativeLibrary;
 
 /**
  * ThreadLocal state for a tracing session. The presence of an instance of this class as a ThreadLocal denotes that an
@@ -56,6 +57,32 @@ public class TraceStateImpl extends TraceState
     public TraceStateImpl(InetAddressAndPort coordinator, UUID sessionId, Tracing.TraceType traceType)
     {
         super(coordinator, sessionId, traceType);
+    }
+
+    /**
+     * xiaojiawei
+     * Aug 24, 2021
+     * [tracing pagefault latency]
+     * If isStart == false add difference of pf_stats to the event table.
+     */
+    protected void traceImplPf(String message, boolean isStart)
+    {
+        long pid = NativeLibrary.getProcessID();
+        long tid = NativeLibrary.getThreadID();
+
+        if (isStart) {
+            pagefaultStats.start(pid, tid);
+            if (logger.isTraceEnabled())
+                logger.trace("Adding <{}> to trace events", message);
+        }
+        else
+        {
+            final String threadName = Thread.currentThread().getName();
+            // end() will calculate and assign the duration to the member variable.
+            pagefaultStats.end(pid, tid);
+            executeMutation(TraceKeyspace.makeEventMutation(sessionIdBytes, message, pagefaultStats.elapsed, threadName, ttl,
+            pagefaultStats.duration, pagefaultStats.stats));
+        }
     }
 
     protected void traceImpl(String message)

@@ -43,6 +43,10 @@ class ExpiredTraceState extends TraceState
         delegate.traceImpl(message);
     }
 
+    protected void traceImplPf(String message, boolean isStart)
+    {
+    }
+
     protected void waitForPendingEvents()
     {
         delegate.waitForPendingEvents();

@@ -62,6 +62,7 @@ public final class TraceKeyspace
 
     public static final String SESSIONS = "sessions";
     public static final String EVENTS = "events";
+    public static final String EVENTS_PF = "events_pf";
 
     private static final TableMetadata Sessions =
         parse(SESSIONS,
@@ -77,6 +78,31 @@ public final class TraceKeyspace
                 + "request text,"
                 + "started_at timestamp,"
                 + "PRIMARY KEY ((session_id)))");
+
+    /**
+     * xiaojiawei
+     * Aug 24, 2021
+     * [tracing pagefault latency]
+     * Add pagefault latency to event table.
+     */
+    private static final TableMetadata EventsPf =
+    parse(EVENTS_PF,
+            "tracing pagefault events",
+            "CREATE TABLE %s ("
+            + "session_id uuid,"
+            + "event_id timeuuid,"
+            + "activity text,"
+            + "source_elapsed int,"
+            + "thread text,"
+            + "duration int,"
+            + "major_pf bigint,"
+            + "minor_pf bigint,"
+            + "noswap_pf bigint,"
+            + "swapin_rdma_pf bigint,"
+            + "swapout_rdma_pf bigint,"
+            + "doswap_pf bigint,"
+            + "shrink_nodes_pf bigint,"
+            + "PRIMARY KEY ((session_id), event_id))");
 
     private static final TableMetadata Events =
         parse(EVENTS,
@@ -102,7 +128,7 @@ public final class TraceKeyspace
 
     public static KeyspaceMetadata metadata()
     {
-        return KeyspaceMetadata.create(SchemaConstants.TRACE_KEYSPACE_NAME, KeyspaceParams.simple(2), Tables.of(Sessions, Events));
+        return KeyspaceMetadata.create(SchemaConstants.TRACE_KEYSPACE_NAME, KeyspaceParams.simple(2), Tables.of(Sessions,Events,EventsPf));
     }
 
     static Mutation makeStartSessionMutation(ByteBuffer sessionId,
@@ -134,6 +160,35 @@ public final class TraceKeyspace
         builder.row()
                .ttl(ttl)
                .add("duration", elapsed);
+        return builder.buildAsMutation();
+    }
+
+    /**
+     * xiaojiawei
+     * Aug 24, 2021
+     * [tracing pagefault latency]
+     * Overload to add pagafault latency columns. 
+     */
+    static Mutation makeEventMutation(ByteBuffer sessionId, String message, int elapsed, String threadName, int ttl,
+        int duration, long[] stats)
+    {
+        PartitionUpdate.SimpleBuilder builder = PartitionUpdate.simpleBuilder(EventsPf, sessionId);
+        Row.SimpleBuilder rowBuilder = builder.row(UUIDGen.getTimeUUID())
+                                              .ttl(ttl);
+
+        rowBuilder.add("activity", message);
+        rowBuilder.add("thread", threadName);
+        rowBuilder.add("source_elapsed", elapsed);
+
+        rowBuilder.add("duration", duration);
+        rowBuilder.add("major_pf", stats[0]);
+        rowBuilder.add("minor_pf", stats[1]);
+        rowBuilder.add("noswap_pf", stats[2]);
+        rowBuilder.add("swapin_rdma_pf", stats[3]);
+        rowBuilder.add("swapout_rdma_pf", stats[4]);
+        rowBuilder.add("doswap_pf", stats[5]);
+        rowBuilder.add("shrink_nodes_pf", stats[6]);
+
         return builder.buildAsMutation();
     }
 

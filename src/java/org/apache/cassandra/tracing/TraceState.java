@@ -24,6 +24,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import java.io.RandomAccessFile;
+import java.math.BigInteger;
+
 import com.google.common.base.Stopwatch;
 import org.slf4j.helpers.MessageFormatter;
 
@@ -50,6 +53,75 @@ public abstract class TraceState implements ProgressEventNotifier
     private final List<ProgressListener> listeners = new CopyOnWriteArrayList<>();
     private String tag;
 
+    /**
+     * xiaojiawei
+     * Aug 24, 2021
+     * [tracing pagefault latency]
+     * Store current tid and pf_stats of the session event.
+     * Used to get the difference in the next event.
+     */
+    public class PagefaultStats {
+        private long pid, tid;
+        public int elapsed;
+        public int duration;
+        public long[] stats;
+        public final int pfStatsLen;
+
+        public PagefaultStats() {
+            elapsed = -1;
+            duration = -1;
+            pfStatsLen = 7;
+            stats = new long[pfStatsLen];
+        }
+
+        public void start(long pid, long tid) {
+            this.pid = pid;
+            this.tid = tid;
+            elapsed = elapsed();
+            long[] stats = readAndParse(pid, tid);
+            for (int i=0; i < pfStatsLen; i++)
+                this.stats[i] = stats[i];
+        }
+
+        public void end(long pid, long tid) {
+            if (this.tid != tid) {
+                this.stats[0] = -1;
+            }
+            else
+            {
+                duration = elapsed() - elapsed;
+                long[] stats = readAndParse(pid, tid);
+                for (int i=0; i < pfStatsLen; i++)
+                    this.stats[i] = stats[i] - this.stats[i];
+            }
+        }
+
+        private long[] readAndParse(long pid, long tid) {
+            String fname = String.format("/proc/%d/task/%d/pf_stats", pid, tid); 
+            String[] tokens = null;
+
+            try {
+                RandomAccessFile reader = new RandomAccessFile(fname, "r");
+                String load = reader.readLine();
+                tokens = load.strip().split(" ");
+            }
+            catch (Exception e)
+            {
+                e.printStackTrace();
+            }
+            
+            if (tokens == null || tokens.length < pfStatsLen)
+                return new long[pfStatsLen];
+
+            long[] stats = new long[pfStatsLen];
+            for (int i = 0; i < pfStatsLen; i++)
+                stats[i] = Long.parseLong(tokens[i]);
+
+            return stats;
+        }
+    }
+    public PagefaultStats pagefaultStats;
+
     public enum Status
     {
         IDLE,
@@ -75,6 +147,8 @@ public abstract class TraceState implements ProgressEventNotifier
         this.ttl = traceType.getTTL();
         watch = Stopwatch.createStarted();
         this.status = Status.IDLE;
+
+        pagefaultStats = new PagefaultStats();
     }
 
     /**
@@ -179,7 +253,34 @@ public abstract class TraceState implements ProgressEventNotifier
         }
     }
 
+    public void traceStart(String message)
+    {
+        if (notify)
+            notifyActivity();
+
+        traceImplPf(message, true);
+
+        for (ProgressListener listener : listeners)
+        {
+            listener.progress(tag, ProgressEvent.createNotification(message));
+        }
+    }
+
+    public void traceEnd(String message)
+    {
+        if (notify)
+            notifyActivity();
+
+        traceImplPf(message, false);
+
+        for (ProgressListener listener : listeners)
+        {
+            listener.progress(tag, ProgressEvent.createNotification(message));
+        }
+    }
+
     protected abstract void traceImpl(String message);
+    protected abstract void traceImplPf(String message, boolean isStart);
 
     protected void waitForPendingEvents()
     {
