@@ -787,12 +787,15 @@ public class SinglePartitionReadCommand extends ReadCommand implements SinglePar
      */
     private UnfilteredRowIterator queryMemtableAndSSTablesInTimestampOrder(ColumnFamilyStore cfs, ClusteringIndexNamesFilter filter)
     {
-        Tracing.trace("Acquiring sstable references");
+        // Tracing.trace("Acquiring sstable references");
+        Tracing.traceStart("Acquiring sstable references");
         ColumnFamilyStore.ViewFragment view = cfs.select(View.select(SSTableSet.LIVE, partitionKey()));
+        Tracing.traceEnd("Acquiring sstable references");
 
         ImmutableBTreePartition result = null;
 
-        Tracing.trace("Merging memtable contents");
+        // Tracing.trace("Merging memtable contents");
+        Tracing.traceStart("Merging memtable contents");
         for (Memtable memtable : view.memtables)
         {
             Partition partition = memtable.getPartition(partitionKey());
@@ -812,10 +815,12 @@ public class SinglePartitionReadCommand extends ReadCommand implements SinglePar
                 );
             }
         }
+        Tracing.traceEnd("Merging memtable contents");
 
         /* add the SSTables on disk */
         Collections.sort(view.sstables, SSTableReader.maxTimestampDescending);
         // read sorted sstables
+        Tracing.traceStart("Read sorted SSTables");
         SSTableReadMetricsCollector metricsCollector = new SSTableReadMetricsCollector();
         for (SSTableReader sstable : view.sstables)
         {
@@ -894,6 +899,7 @@ public class SinglePartitionReadCommand extends ReadCommand implements SinglePar
                 );
             }
         }
+        Tracing.traceEnd("Read sorted SSTables");
 
         cfs.metric.updateSSTableIterated(metricsCollector.getMergedSSTables());
 

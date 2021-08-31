@@ -36,7 +36,10 @@ public class CassandraTableWriteHandler implements TableWriteHandler
     public void write(PartitionUpdate update, WriteContext context, UpdateTransaction updateTransaction)
     {
         CassandraWriteContext ctx = CassandraWriteContext.fromContext(context);
-        Tracing.trace("Adding to {} memtable", update.metadata().name);
+        // Tracing.trace("Adding to {} memtable", update.metadata().name);
+        String traceMessage = String.format("Adding to %s memtable", update.metadata().name);
+        Tracing.traceStart(traceMessage);
         cfs.apply(update, updateTransaction, ctx.getGroup(), ctx.getPosition());
+        Tracing.traceEnd(traceMessage);
     }
 }

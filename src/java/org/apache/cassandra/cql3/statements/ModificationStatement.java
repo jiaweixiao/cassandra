@@ -61,6 +61,8 @@ import org.apache.cassandra.utils.UUIDGen;
 import static org.apache.cassandra.cql3.statements.RequestValidations.checkFalse;
 import static org.apache.cassandra.cql3.statements.RequestValidations.checkNull;
 
+import org.apache.cassandra.tracing.Tracing;
+
 /*
  * Abstract parent class of individual modifications, i.e. INSERT, UPDATE and DELETE.
  */
@@ -467,12 +469,14 @@ public abstract class ModificationStatement implements CQLStatement
         else
             cl.validateForWrite(metadata.keyspace);
 
+        Tracing.traceStart("Modification statement getMutations");
         List<? extends IMutation> mutations =
             getMutations(options,
                          false,
                          options.getTimestamp(queryState),
                          options.getNowInSeconds(queryState),
                          queryStartNanoTime);
+        Tracing.traceEnd("Modification statement getMutations");
         if (!mutations.isEmpty())
             StorageProxy.mutateWithTriggers(mutations, cl, false, queryStartNanoTime);
 

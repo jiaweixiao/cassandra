@@ -2356,7 +2356,9 @@ public class StorageProxy implements StorageProxyMBean
                 try (ReadExecutionController executionController = command.executionController();
                      UnfilteredPartitionIterator iterator = command.executeLocally(executionController))
                 {
+                    Tracing.traceStart("Create local response");
                     response = command.createResponse(iterator);
+                    Tracing.traceEnd("Create local response");
                 }
 
                 if (command.complete())

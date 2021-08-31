@@ -76,6 +76,8 @@ import static org.apache.cassandra.cql3.statements.RequestValidations.checkNull;
 import static org.apache.cassandra.cql3.statements.RequestValidations.checkTrue;
 import static org.apache.cassandra.utils.ByteBufferUtil.UNSET_BYTE_BUFFER;
 
+import org.apache.cassandra.tracing.Tracing;
+
 /**
  * Encapsulates a completely parsed SELECT query, including the target
  * column family, expression, result count, and ordering clause.
@@ -293,7 +295,12 @@ public class SelectStatement implements CQLStatement
     {
         try (PartitionIterator data = query.execute(options.getConsistency(), state.getClientState(), queryStartNanoTime))
         {
+            Tracing.traceStart("Select Statement processResults");
             return processResults(data, options, selectors, nowInSec, userLimit);
+        }
+        finally
+        {
+            Tracing.traceEnd("Select Statement processResults");
         }
     }
 
