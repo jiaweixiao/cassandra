@@ -99,7 +99,11 @@ if [ $JAVA_VERSION -ge 11 ] ; then
     if [ "$?" = "1" ] ; then # [X] to prevent ccm from replacing this line
         # only add -Xlog:gc if it's not mentioned in jvm-server.options file
         mkdir -p ${CASSANDRA_LOG_DIR}
-        JVM_OPTS="$JVM_OPTS -Xlog:gc=info,heap*=trace,age*=debug,safepoint=info,promotion*=trace:file=${CASSANDRA_LOG_DIR}/gc.log:time,uptime,pid,tid,level:filecount=10,filesize=10485760"
+        if [ "x$CASSANDRA_JVM11_GC_OPTS" == "x" ] ; then
+            JVM_OPTS="$JVM_OPTS -Xlog:gc=info,heap*=trace,age*=debug,safepoint=info,promotion*=trace:file=${CASSANDRA_LOG_DIR}/gc.log:time,uptime,pid,tid,level:filecount=10,filesize=10485760"
+        else
+            JVM_OPTS="$JVM_OPTS $CASSANDRA_JVM11_GC_OPTS"
+        fi
     fi
 else
     # Java 8
@@ -234,8 +238,10 @@ fi
 JMX_PORT="7199"
 
 if [ "$LOCAL_JMX" = "yes" ]; then
-  JVM_OPTS="$JVM_OPTS -Dcassandra.jmx.local.port=$JMX_PORT"
+  #JVM_OPTS="$JVM_OPTS -Dcassandra.jmx.local.port=$JMX_PORT"
+  JVM_OPTS="$JVM_OPTS -Dcassandra.jmx.remote.port=$JMX_PORT"
   JVM_OPTS="$JVM_OPTS -Dcom.sun.management.jmxremote.authenticate=false"
+  JVM_OPTS="$JVM_OPTS -Djava.rmi.server.hostname=10.208.129.17"
 else
   JVM_OPTS="$JVM_OPTS -Dcassandra.jmx.remote.port=$JMX_PORT"
   # if ssl is enabled the same port cannot be used for both jmx and rmi so either
