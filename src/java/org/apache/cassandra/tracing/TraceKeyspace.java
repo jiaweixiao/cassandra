@@ -19,6 +19,9 @@ package org.apache.cassandra.tracing;
 
 import java.net.InetAddress;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 
 import org.apache.cassandra.cql3.statements.schema.CreateTableStatement;
@@ -64,6 +67,20 @@ public final class TraceKeyspace
     public static final String EVENTS = "events";
     public static final String EVENTS_PF = "events_pf";
 
+    /**
+     * xiaojiawei
+     * Oct 25, 2021
+     * [tracing pagefault latency]
+     * Check if kernel supports pagefault statistic.
+     */
+    public static boolean isTracePf = false;
+    static {
+        Path path = Paths.get("/sys/kernel/mm/pagefault/enabled");
+        if (Files.exists(path)) {
+            isTracePf = true;
+        }
+    }
+
     private static final TableMetadata Sessions =
         parse(SESSIONS,
                 "tracing sessions",
@@ -100,7 +117,7 @@ public final class TraceKeyspace
             + "noswap_pf bigint,"
             + "swapin_rdma_pf bigint,"
             + "swapout_rdma_pf bigint,"
-            + "doswap_pf bigint,"
+            // + "doswap_pf bigint,"
             + "shrink_nodes_pf bigint,"
             + "PRIMARY KEY ((session_id), event_id))");
 
@@ -186,7 +203,7 @@ public final class TraceKeyspace
         rowBuilder.add("noswap_pf", stats[2]);
         rowBuilder.add("swapin_rdma_pf", stats[3]);
         rowBuilder.add("swapout_rdma_pf", stats[4]);
-        rowBuilder.add("doswap_pf", stats[5]);
+        // rowBuilder.add("doswap_pf", stats[5]);
         rowBuilder.add("shrink_nodes_pf", stats[6]);
 
         return builder.buildAsMutation();

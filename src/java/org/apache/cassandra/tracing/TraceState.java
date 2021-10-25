@@ -78,9 +78,11 @@ public abstract class TraceState implements ProgressEventNotifier
             this.pid = pid;
             this.tid = tid;
             elapsed = elapsed();
-            long[] stats = readAndParse(pid, tid);
-            for (int i=0; i < pfStatsLen; i++)
-                this.stats[i] = stats[i];
+            if (TraceKeyspace.isTracePf) {
+                long[] stats = readAndParse(pid, tid);
+                for (int i=0; i < pfStatsLen; i++)
+                    this.stats[i] = stats[i];
+            }
         }
 
         public void end(long pid, long tid) {
@@ -90,9 +92,11 @@ public abstract class TraceState implements ProgressEventNotifier
             else
             {
                 duration = elapsed() - elapsed;
-                long[] stats = readAndParse(pid, tid);
-                for (int i=0; i < pfStatsLen; i++)
-                    this.stats[i] = stats[i] - this.stats[i];
+                if (TraceKeyspace.isTracePf) {
+                    long[] stats = readAndParse(pid, tid);
+                    for (int i=0; i < pfStatsLen; i++)
+                        this.stats[i] = stats[i] - this.stats[i];
+                }
             }
         }
 
@@ -104,6 +108,7 @@ public abstract class TraceState implements ProgressEventNotifier
                 RandomAccessFile reader = new RandomAccessFile(fname, "r");
                 String load = reader.readLine();
                 tokens = load.strip().split(" ");
+                reader.close();
             }
             catch (Exception e)
             {
