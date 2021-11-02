@@ -8,15 +8,36 @@ The client is a temporary Java process, used to submit DB request.
 - Python (2.7 and higher)
 
 # Build
-cd Cassandra_dir
 
+```bash
+cd Cassandra_dir
+sudo yum install ant ant-junit java-11-openjdk-devel
+```
+
+add following lines to ~/.bashrc:
+
+```bash
+export JAVA_HOME=/usr/lib/jvm/java-11-openjdk
+export JRE_HOME=/usr/lib/jvm/java-11-openjdk/jre
+export PATH=$PATH:$JAVA_HOME/bin:$JRE_HOME/bin
+```
+
+Restart shell to apply changes.
+
+Build Cassandras
+
+```bash
+cd cassandra
 ant -Duse.jdk11=true
+```
+
+reference: [Support for Java 11](https://cassandra.staged.apache.org/doc/latest/cassandra/new/java11.html)
 
 # Configuration
 cd Cassandra_dir/conf
 - cassandra-env.sh Configure the environments.
 - cassandra.yaml Basic Cassandra configurations.
-- jvm11-server.options Java options, for Java 11 and higer.
+- jvm11-server.options Java options, for Java 11 and higher.
 
 ## IP of Cassandra server
 
@@ -44,21 +65,53 @@ rpc_address: 131.x.x.201
 
 ```
 
+## bash variables config
+
+add following lines to ~/.bashrc (Replace `jdk_home_directory` and `cassandra_home_directory`):
+
+```bash
+export JAVA_HOME=`jdk_home_directory`
+export JAVA=`jdk_home_directory`/bin/java
+export PATH=$PATH:$JAVA_HOME/bin
+# cassandra
+export PATH=$PATH:`cassandra_home_directory`/bin
+```
+
+Restart shell to apply changes.
 
 # Basic operations
 
-Launch the DB server
-````js
-bin/cassandra
-````
+## Launch the DB server
 
+(maybe not necessary) add this line at the start of `cassandra`
+
+```bash
+# It is recommended to launch the server in a tmux session.
+# To ensure server is using the intended JVM, `echo $JAVA_HOME` to check before running
+# You may need to modify ~/.bash_profile to apply changes in `~/.bashrc` to tmux shell
+# ref: [New tmux sessions do not source bashrc file](https://unix.stackexchange.com/questions/320465/new-tmux-sessions-do-not-source-bashrc-file)
+cassandra
+```
+
+## Operations
 
 And then we can insert/delete/search data via DB command line.
 Assume the server ip is 131.x.x.201
-```js
-bin/cqlsh 131.x.x.201 \
+```bash
+cqlsh 131.x.x.201
 ```
 
+## Stop the DB server
+
+```bash
+stop-server
+```
+
+## Delete all database data
+
+```bash
+rm -rf ~/cassandra/data
+```
 
 # Run with YCSB
 Yahoo! Cloud Serving Benchmark (YCSB) is a testcase for database. We can use it to submit lots of DB requests to test the throughput of the Cassandra.
@@ -67,7 +120,17 @@ Yahoo! Cloud Serving Benchmark (YCSB) is a testcase for database. We can use it 
 
 Launch the Cassandra server on the CPU server.
 
-### Create keyspace for YCSB
+### Use a script to set up
+
+```bash
+# ask Shi for permission
+git clone https://github.com/FereX98/scripts-repo.git
+cqlsh 131.x.x.201 9042 --file $HOME/scripts-repo/sql/ycsb.cql
+```
+
+### Setting up manually
+
+#### Create keyspace for YCSB
 
 ```js
   # Connect to Cassandra
@@ -78,7 +141,7 @@ Launch the Cassandra server on the CPU server.
   create keyspace ycsb WITH REPLICATION = {'class' : 'SimpleStrategy', 'replication_factor' : 3 };
 ```
 
-### Create an in-memory usertable for YCSB
+#### Create an in-memory usertable for YCSB
 
 ```js
 cqlsh> USE ycsb;
@@ -105,11 +168,11 @@ Please use the pre-built SH in repo ShellScript/Memliner/Cassandra/.
 
 ```js
   # Assume the Cassandra server runs on 131.x.x.201
-  # We are going to use the workload defiend in workloads/workloada
+  # We are going to use the workload defined in workloads/workloada
   bin/ycsb load cassandra-cql -p hosts="131.x.x.201" -s -P workloads/workloada
 ```
 
-Use  DB command line to check if the data is loaded into memtable correctlly.
+Use DB command line to check if the data is loaded into memtable correctly.
 
 ```js
 # use cqlsh terminal
@@ -140,9 +203,41 @@ Please use the pre-built SH in repo ShellScript/Memliner/Cassandra/.
   bin/ycsb run cassandra-cql -p hosts="131.x.x.201" -s -P workloads/workloada
 ```
 
+Some arguments in the workload file, such as number of threads and number of records and operations can be overwritten by command options. Learn more in Chenxi's scripts:
+
 The pre-defined workloads are in the repo, Benchmark/Cassandra/YCSB/workloads/
 
 The pre-defiend shellscripts are in the repo, ShellScript/Memliner/Cassandra/
+
+```bash
+# ask Chenxi for permissions
+git clone https://github.com/wangchenxi7/Benchmark.git
+git clone https://github.com/wangchenxi7/ShellScript.git
+
+cp Benchmark/Cassandra/YCSB/workloads/workloadMemLiner* ycsb-0.17.0/workloads/
+mkdir Logs
+
+# edit arguments before running, mainly `host_ip`, `tag` and `workload`.
+/mnt/ssd/shiliu/ShellScript/Memliner/Cassandra/optimal_ycsb_control.sh load
+/mnt/ssd/shiliu/ShellScript/Memliner/Cassandra/optimal_ycsb_control.sh run
+```
+
+### Server Remote Control
+
+It is possible to run several benchmarks autmatically by controlling Cassandra server via ssh on the client.
+
+See Shi's script for more information:
+
+```bash
+# ask Shi for permission
+git clone https://github.com/FereX98/scripts-repo.git
+cd scripts-repo/cassandra
+./manage_server.sh start
+./manage_server.sh stop
+./manage_server.sh limit 5g
+./manage_server.sh load 13-II workloadMemLinerInsertIntensive
+./manage_server.sh run 13-UInsert workloadMemLinerUpdateInsert
+```
 
 # More details
 
@@ -159,15 +254,19 @@ cassandra/bin/cassandra
 ADD_INTO_CGROUP="cgexec  --sticky -g memory:memctl"
 
 # 2) Set the $ADD_INTO_CGROUP to null to remove the cassandra server from cgroup
-
-
 ```
-
 
 ## Cassandra disabled swapping by pretouching and pinning the Java heap in memory
 We need to modify the source code of cassandra to disable the Java heap pinning mechanism. Check the commit for more details.
 
+## Running several benchmarks with one server launch
 
+Under the same Cassandra config and local ratio, running several benchmarks with one server launch and the order running them do not have a significant impact on the performance.
 
+But impact of changing local cache ratio without restarting the server is untested. Every time the Cassandra config or local ratio is changed, it is recommended to stop the server, delete database data, restart the server and recreate the usertable, to ensure correct measurement of performance.
 
+## GC pause calculation
 
+To calcluate GC pause for each run of a benchmark, extract GC logs during the period of the benchmark run from the server log file: `${cassandra_home}/logs/gc.log`. Then use a script to add up all pause time. 
+
+The script to use depends on your GC and GC log option. For logs using the default Shenandoah GC log options (defined in `${cassandra_home}/conf/cassandra-env.sh`), you can use `${cassandra_home}/tools/pick_log.py` to extract GC log messages of a period of time; Use `${cassandra_home}/tools/pause.py` to calculate the GC pause time.
