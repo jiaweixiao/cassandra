@@ -1,6 +1,9 @@
-# Cassandra 
-Cassandra is a key-value store database. It has 2 basic compoents, client and server. The server is a long run Java process, working as the database (DB). 
+# Cassandra
+
+Cassandra is a key-value store database. It has 2 basic compoents, client and server. The server is a long run Java process, working as the database (DB).
 The client is a temporary Java process, used to submit DB request.
+
+Before start reading this script, change `131.x.x.201` into your Cassandra server's IP address.
 
 # Requirements
 - Java (1.8 and higher. Cassandra 4.0 works with Java 11 and 12)
@@ -34,36 +37,33 @@ ant -Duse.jdk11=true
 reference: [Support for Java 11](https://cassandra.staged.apache.org/doc/latest/cassandra/new/java11.html)
 
 # Configuration
-cd Cassandra_dir/conf
-- cassandra-env.sh Configure the environments.
-- cassandra.yaml Basic Cassandra configurations.
-- jvm11-server.options Java options, for Java 11 and higher.
+
+`cd cassandra/conf`
 
 ## IP of Cassandra server
 
-- cassandra.yaml assuming using ip 131.x.x.201
-```js
-# 1. seeds
-seed_provider:
-    # Addresses of hosts that are deemed contact points.
-    # Cassandra nodes use this list of hosts to find each other and learn
-    # the topology of the ring.  You must change this if you are running
-    # multiple nodes!
-    - class_name: org.apache.cassandra.locator.SimpleSeedProvider
-      parameters:
-          # seeds is actually a comma-delimited list of addresses.
-          # Ex: "<ip1>,<ip2>,<ip3>"
-          - seeds: "131.x.x.201:7000"
+Assuming using ip 131.x.x.201 as server, change the following arguments in `cassandra.yaml`:
 
+```conf
+# 1. seeds
+seeds: "131.x.x.201:7000"
 
 # 2. listen_address
 listen_address: 131.x.x.201
 
-
-# 3. rpc_address 
+# 3. rpc_address
 rpc_address: 131.x.x.201
-
 ```
+
+## Java Options
+
+When using JDK11 or above, config java options in `jvm11-server.options`.
+
+For Mako or Shenandoah GC, a template configuration is provided in `jvm11-server-shenandoah.options`.
+
+`diff jvm11-server.options jvm11-server-shenandoah.options` for changes.
+
+To modify GC log options, search `JVM_OPTS="$JVM_OPTS -Xlog:gc=info,heap*=trace,age*=debug,safepoint=info,promotion*=trace:file=${CASSANDRA_LOG_DIR}/gc.log:time,uptime,pid,tid,level:filecount=10,filesize=10485760"` and modify in `cassandra-env.sh`.
 
 ## bash variables config
 
@@ -123,9 +123,10 @@ Launch the Cassandra server on the CPU server.
 ### Use a script to set up
 
 ```bash
+cd ${HOME}
 # ask Shi for permission
 git clone https://github.com/FereX98/scripts-repo.git
-cqlsh 131.x.x.201 9042 --file $HOME/scripts-repo/sql/ycsb.cql
+cqlsh 131.x.x.201 9042 --file $HOME/scripts-repo/cassandra/ycsb.cql
 ```
 
 ### Setting up manually
@@ -136,7 +137,7 @@ cqlsh 131.x.x.201 9042 --file $HOME/scripts-repo/sql/ycsb.cql
   # Connect to Cassandra
   # Assume the Cassandra server runs on 131.x.x.201
   cqlsh 131.x.x.201 9042
-  
+
   # Create a keyspace with name ycsb
   create keyspace ycsb WITH REPLICATION = {'class' : 'SimpleStrategy', 'replication_factor' : 3 };
 ```
@@ -159,10 +160,11 @@ cqlsh:ycsb> SELECT * FROM usertable;
 ## Client end
 
 Run the request on another server. e.g., paso.
-Download the binary version ycsb on client. 
+Download the binary version ycsb on client.
 
 ### Load data for YCSB
-Choose a workload from YCSB/workloads to run. The workload defines the DB commandlines, e.g., read/update/insert/delete. 
+
+Choose a workload from YCSB/workloads to run. The workload defines the DB commandlines, e.g., read/update/insert/delete.
 For memliner, we have some pre-defined workloads in repo, Benchmark/Cassandra/YCSB/workloads/.
 Please use the pre-built SH in repo ShellScript/Memliner/Cassandra/.
 
@@ -210,6 +212,7 @@ The pre-defined workloads are in the repo, Benchmark/Cassandra/YCSB/workloads/
 The pre-defiend shellscripts are in the repo, ShellScript/Memliner/Cassandra/
 
 ```bash
+cd ~
 # ask Chenxi for permissions
 git clone https://github.com/wangchenxi7/Benchmark.git
 git clone https://github.com/wangchenxi7/ShellScript.git
@@ -217,12 +220,16 @@ git clone https://github.com/wangchenxi7/ShellScript.git
 cp Benchmark/Cassandra/YCSB/workloads/workloadMemLiner* ycsb-0.17.0/workloads/
 mkdir Logs
 
-# edit arguments before running, mainly `host_ip`, `tag` and `workload`.
-/mnt/ssd/shiliu/ShellScript/Memliner/Cassandra/optimal_ycsb_control.sh load
-/mnt/ssd/shiliu/ShellScript/Memliner/Cassandra/optimal_ycsb_control.sh run
+# edit arguments before running, mainly `host_ip`, `records`, `tag`, `workload`.
+# It is racommended to change `records` to 1000000, for a faster test.
+${HOME}/ShellScript/Memliner/Cassandra/optimal_ycsb_control.sh load
+${HOME}/ShellScript/Memliner/Cassandra/optimal_ycsb_control.sh run
+# When running with remote memory, do not forget to set cgroup ON SERVER
+sudo cgcreate -t $USER -a $USER -g memory:/memctl
+echo 9g > /sys/fs/cgroup/memory/memctl/memory.limit_in_bytes
 ```
 
-### Server Remote Control
+### Run YCSB with Server Remote Control
 
 It is possible to run several benchmarks autmatically by controlling Cassandra server via ssh on the client.
 
@@ -232,9 +239,22 @@ See Shi's script for more information:
 # ask Shi for permission
 git clone https://github.com/FereX98/scripts-repo.git
 cd scripts-repo/cassandra
-./manage_server.sh start
+# There are problems about the start option in the script.
+# Instead, please use the following commands on the server to start the server.
+# ./manage_server.sh start
+cassandra
+# wait for the server to be ready, usually takes about 60 ~ 80 seconds
+sleep 100
+cqlsh 131.x.x.201 9042 --file ${HOME}/scripts-repo/cassandra/ycsb.cql
+
 ./manage_server.sh stop
 ./manage_server.sh limit 5g
+# $tag is the prefix in the client-side log file, see ycsb_control.sh for more information
+# $workload is the name of the workload files.
+# For Mako, `workloadMemLinerInsertIntensive` and `workloadMemLinerUpdateInsert` are used for now.
+./manage_server.sh load $tag $workload
+./manage_server.sh run  $tag $workload
+# e.g.
 ./manage_server.sh load 13-II workloadMemLinerInsertIntensive
 ./manage_server.sh run 13-UInsert workloadMemLinerUpdateInsert
 ```
@@ -267,6 +287,6 @@ But impact of changing local cache ratio without restarting the server is untest
 
 ## GC pause calculation
 
-To calcluate GC pause for each run of a benchmark, extract GC logs during the period of the benchmark run from the server log file: `${cassandra_home}/logs/gc.log`. Then use a script to add up all pause time. 
+To calcluate GC pause for each run of a benchmark, extract GC logs during the period of the benchmark run from the server log file: `${cassandra_home}/logs/gc.log`. Then use a script to add up all pause time.
 
 The script to use depends on your GC and GC log option. For logs using the default Shenandoah GC log options (defined in `${cassandra_home}/conf/cassandra-env.sh`), you can use `${cassandra_home}/tools/pick_log.py` to extract GC log messages of a period of time; Use `${cassandra_home}/tools/pause.py` to calculate the GC pause time.
