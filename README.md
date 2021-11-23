@@ -3,7 +3,7 @@
 Cassandra is a key-value store database. It has 2 basic compoents, client and server. The server is a long run Java process, working as the database (DB).
 The client is a temporary Java process, used to submit DB request.
 
-Before start reading this script, change `131.x.x.201` into your Cassandra server's IP address.
+Before start reading this script, change `x.x.x.x` into your Cassandra server's IP address.
 
 # Requirements
 - Java (1.8 and higher. Cassandra 4.0 works with Java 11 and 12)
@@ -42,17 +42,17 @@ reference: [Support for Java 11](https://cassandra.staged.apache.org/doc/latest/
 
 ## IP of Cassandra server
 
-Assuming using ip 131.x.x.201 as server, change the following arguments in `cassandra.yaml`:
+Assuming using ip x.x.x.x as server, change the following arguments in `cassandra.yaml`:
 
 ```conf
 # 1. seeds
-seeds: "131.x.x.201:7000"
+seeds: "x.x.x.x:7000"
 
 # 2. listen_address
-listen_address: 131.x.x.201
+listen_address: x.x.x.x
 
 # 3. rpc_address
-rpc_address: 131.x.x.201
+rpc_address: x.x.x.x
 ```
 
 ## Java Options
@@ -96,9 +96,9 @@ cassandra
 ## Operations
 
 And then we can insert/delete/search data via DB command line.
-Assume the server ip is 131.x.x.201
+Assume the server ip is x.x.x.x
 ```bash
-cqlsh 131.x.x.201
+cqlsh x.x.x.x
 ```
 
 ## Stop the DB server
@@ -116,6 +116,31 @@ rm -rf ~/cassandra/data
 # Run with YCSB
 Yahoo! Cloud Serving Benchmark (YCSB) is a testcase for database. We can use it to submit lots of DB requests to test the throughput of the Cassandra.
 
+## TLDR
+
+```bash
+# modify config as you need
+code ~/.bashrc
+code ~/cassandra/conf/jvm11-server.options
+
+# on server
+rm -rf ~/cassandra/data
+cassandra
+## wait for server to start
+cqlsh x.x.x.x 9042 --file $HOME/scripts-repo/cassandra/ycsb.cql
+
+stop-server
+
+# on client
+cd ~scripts-repo/cassandra
+./manage_server.sh load II-25-flush workloadMemLinerInsertIntensive
+./manage_server.sh run  II-25-flush workloadMemLinerInsertIntensive
+
+./manage_server.sh load UI-z-weakrefproc workloadMemLinerUpdateInsert
+./manage_server.sh run  UI-z-weakrefproc workloadMemLinerUpdateInsert
+
+```
+
 ## Server end
 
 Launch the Cassandra server on the CPU server.
@@ -126,7 +151,7 @@ Launch the Cassandra server on the CPU server.
 cd ${HOME}
 # ask Shi for permission
 git clone https://github.com/FereX98/scripts-repo.git
-cqlsh 131.x.x.201 9042 --file $HOME/scripts-repo/cassandra/ycsb.cql
+cqlsh x.x.x.x 9042 --file $HOME/scripts-repo/cassandra/ycsb.cql
 ```
 
 ### Setting up manually
@@ -135,8 +160,8 @@ cqlsh 131.x.x.201 9042 --file $HOME/scripts-repo/cassandra/ycsb.cql
 
 ```js
   # Connect to Cassandra
-  # Assume the Cassandra server runs on 131.x.x.201
-  cqlsh 131.x.x.201 9042
+  # Assume the Cassandra server runs on x.x.x.x
+  cqlsh x.x.x.x 9042
 
   # Create a keyspace with name ycsb
   create keyspace ycsb WITH REPLICATION = {'class' : 'SimpleStrategy', 'replication_factor' : 3 };
@@ -169,9 +194,9 @@ For memliner, we have some pre-defined workloads in repo, Benchmark/Cassandra/YC
 Please use the pre-built SH in repo ShellScript/Memliner/Cassandra/.
 
 ```js
-  # Assume the Cassandra server runs on 131.x.x.201
+  # Assume the Cassandra server runs on x.x.x.x
   # We are going to use the workload defined in workloads/workloada
-  bin/ycsb load cassandra-cql -p hosts="131.x.x.201" -s -P workloads/workloada
+  bin/ycsb load cassandra-cql -p hosts="x.x.x.x" -s -P workloads/workloada
 ```
 
 Use DB command line to check if the data is loaded into memtable correctly.
@@ -202,7 +227,7 @@ Do operations on the loaded data.
 Please use the pre-built SH in repo ShellScript/Memliner/Cassandra/.
 
 ```js
-  bin/ycsb run cassandra-cql -p hosts="131.x.x.201" -s -P workloads/workloada
+  bin/ycsb run cassandra-cql -p hosts="x.x.x.x" -s -P workloads/workloada
 ```
 
 Some arguments in the workload file, such as number of threads and number of records and operations can be overwritten by command options. Learn more in Chenxi's scripts:
@@ -245,7 +270,7 @@ cd scripts-repo/cassandra
 cassandra
 # wait for the server to be ready, usually takes about 60 ~ 80 seconds
 sleep 100
-cqlsh 131.x.x.201 9042 --file ${HOME}/scripts-repo/cassandra/ycsb.cql
+cqlsh x.x.x.x 9042 --file ${HOME}/scripts-repo/cassandra/ycsb.cql
 
 ./manage_server.sh stop
 ./manage_server.sh limit 5g
@@ -255,8 +280,11 @@ cqlsh 131.x.x.201 9042 --file ${HOME}/scripts-repo/cassandra/ycsb.cql
 ./manage_server.sh load $tag $workload
 ./manage_server.sh run  $tag $workload
 # e.g.
-./manage_server.sh load 13-II workloadMemLinerInsertIntensive
-./manage_server.sh run 13-UInsert workloadMemLinerUpdateInsert
+./manage_server.sh load 100 workloadMemLinerInsertIntensive
+./manage_server.sh run  100 workloadMemLinerInsertIntensive
+
+./manage_server.sh load UInsert-entry-overhead-3 workloadMemLinerUpdateInsert
+./manage_server.sh run  UInsert-entry-overhead-3 workloadMemLinerUpdateInsert
 ```
 
 # More details
