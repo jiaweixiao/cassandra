@@ -127,7 +127,7 @@ code ~/cassandra/conf/jvm11-server.options
 rm -rf ~/cassandra/data
 cassandra
 ## wait for server to start
-cqlsh x.x.x.x 9042 --file $HOME/scripts-repo/cassandra/ycsb.cql
+cqlsh x.x.x.x 9042 --file ~/scripts-repo/cassandra/ycsb.cql
 
 stop-server
 
@@ -261,17 +261,12 @@ It is possible to run several benchmarks autmatically by controlling Cassandra s
 See Shi's script for more information:
 
 ```bash
+# on Cassandra client
 # ask Shi for permission
 git clone https://github.com/FereX98/scripts-repo.git
 cd scripts-repo/cassandra
-# There are problems about the start option in the script.
-# Instead, please use the following commands on the server to start the server.
-# ./manage_server.sh start
-cassandra
-# wait for the server to be ready, usually takes about 60 ~ 80 seconds
-sleep 100
-cqlsh x.x.x.x 9042 --file ${HOME}/scripts-repo/cassandra/ycsb.cql
-
+# start server, and 
+./manage_server.sh start
 ./manage_server.sh stop
 ./manage_server.sh limit 5g
 # $tag is the prefix in the client-side log file, see ycsb_control.sh for more information

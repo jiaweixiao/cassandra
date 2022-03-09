@@ -77,6 +77,129 @@
 -Xms32g
 -Xmx32g
 
+### Memliner
+
+# local baseline:
+#-XX:+UseG1GC
+#-Xms32g
+#-Xmx32g
+#-XX:-UseCompressedOops
+#-XX:MetaspaceSize=128M 
+#-XX:MarkStackSize=64M 
+#-XX:MarkStackSizeMax=64M
+#-XX:+PrintGCDetails
+
+
+# 9g baseline:
+#-XX:+UseG1GC
+#-Xms32g
+#-Xmx32g
+#-XX:-UseCompressedOops
+#-XX:MetaspaceSize=128M 
+#-XX:MarkStackSize=64M 
+#-XX:MarkStackSizeMax=64M
+#-XX:+PrintGCDetails
+#-XX:MaxNewSize=4g
+
+# 5g baseline:
+#-XX:+UseG1GC
+#-Xms32g
+#-Xmx32g
+#-XX:-UseCompressedOops
+#-XX:MetaspaceSize=128M 
+#-XX:MarkStackSize=64M 
+#-XX:MarkStackSizeMax=64M
+#-XX:+PrintGCDetails
+#-XX:MaxNewSize=2g
+
+
+#9g memliner insertintensive: no conc
+-XX:+UseG1GC
+-Xms32g
+-Xmx32g
+-XX:-UseCompressedOops
+-XX:MetaspaceSize=96M 
+-XX:MarkStackSize=64M 
+-XX:MarkStackSizeMax=64M
+-XX:+PrintGCDetails
+-XX:MaxNewSize=4g
+-XX:ParallelGCThreads=8
+
+
+#9g memliner insertupdate: no rebuild
+#-XX:+UseG1GC
+#-Xms32g
+#-Xmx32g
+#-XX:-UseCompressedOops
+#-XX:MetaspaceSize=96M 
+#-XX:MarkStackSize=64M 
+#-XX:MarkStackSizeMax=64M
+#-XX:+PrintGCDetails
+#-XX:MaxNewSize=4g
+#-XX:ParallelGCThreads=8
+#-XX:InitiatingHeapOccupancyPercent=80
+#-Xnoclassgc 
+#-XX:ConcGCThreads=2 
+#-XX:PrefetchThreads=1
+#-XX:PrefetchNum=1024
+#-XX:PrefetchSize=100000
+#-XX:PrefetchQueueThreshold=0 
+#-XX:G1PrefetchBufferSize=1024
+
+#9g memliner insertall: no rebuild (rerun after load)
+#-XX:+UseG1GC
+#-Xms32g
+#-Xmx32g
+#-XX:-UseCompressedOops
+#-XX:MetaspaceSize=96M 
+#-XX:MarkStackSize=64M 
+#-XX:MarkStackSizeMax=64M
+#-XX:+PrintGCDetails
+#-XX:MaxNewSize=4g
+#-XX:ParallelGCThreads=16 
+#-XX:InitiatingHeapOccupancyPercent=75 
+#-Xnoclassgc 
+#-XX:ConcGCThreads=2 
+#-XX:PrefetchThreads=1 
+#-XX:PrefetchNum=1024 
+#-XX:PrefetchSize=100000 
+#-XX:PrefetchQueueThreshold=0 
+#-XX:G1PrefetchBufferSize=1024
+
+
+#5g memliner insertall: no rebuild (rerun after load)
+#-XX:+UseG1GC -Xms32g -Xmx32g -XX:-UseCompressedOops -XX:MetaspaceSize=96M  -XX:MarkStackSize=64M 
+#-XX:MarkStackSizeMax=64M -XX:+PrintGCDetails -XX:MaxNewSize=2g -XX:ParallelGCThreads=16 -XX:InitiatingHeapOccupancyPercent=75 
+#-Xnoclassgc  -XX:ConcGCThreads=2  -XX:PrefetchThreads=1  -XX:PrefetchNum=1024  -XX:PrefetchSize=100000 
+#-XX:PrefetchQueueThreshold=0 -XX:G1PrefetchBufferSize=1024
+
+
+#5g memliner insertintensive: no conc
+#-XX:+UseG1GC -Xms32g -Xmx32g -XX:-UseCompressedOops -XX:MetaspaceSize=96M -XX:MarkStackSize=64M 
+#-XX:MarkStackSizeMax=64M -XX:+PrintGCDetails -XX:MaxNewSize=4g -XX:ParallelGCThreads=16 
+
+#5g memliner insertintensive: no rebuild havedone<3
+#-XX:+UseG1GC -Xms32g -Xmx32g -XX:-UseCompressedOops -XX:MetaspaceSize=96M  -XX:MarkStackSize=64M  
+#-XX:MarkStackSizeMax=64M -XX:+PrintGCDetails -XX:MaxNewSize=2g -XX:ParallelGCThreads=16  
+#-XX:InitiatingHeapOccupancyPercent=83  -Xnoclassgc  -XX:ConcGCThreads=2  -XX:PrefetchThreads=1  
+#-XX:PrefetchNum=16384  -XX:PrefetchSize=1000000 -XX:PrefetchQueueThreshold=0  -XX:G1PrefetchBufferSize=1024
+
+#5g memliner insertall: no rebuild
+#-XX:+UseG1GC -Xms32g -Xmx32g -XX:-UseCompressedOops -XX:MetaspaceSize=96M  -XX:MarkStackSize=64M  
+#-XX:MarkStackSizeMax=64M -XX:+PrintGCDetails -XX:MaxNewSize=2g -XX:ParallelGCThreads=16  
+#-XX:InitiatingHeapOccupancyPercent=70  -Xnoclassgc  -XX:ConcGCThreads=2  -XX:PrefetchThreads=1  
+#-XX:PrefetchNum=16384  -XX:PrefetchSize=1000000 -XX:PrefetchQueueThreshold=0  -XX:G1PrefetchBufferSize=1024
+
+#5g memliner insertupdate: no rebuild
+#-XX:+UseG1GC -Xms32g -Xmx32g -XX:-UseCompressedOops -XX:MetaspaceSize=96M  -XX:MarkStackSize=64M  
+#-XX:MarkStackSizeMax=64M -XX:+PrintGCDetails -XX:MaxNewSize=2g -XX:ParallelGCThreads=16  
+#-XX:InitiatingHeapOccupancyPercent=70  -Xnoclassgc  -XX:ConcGCThreads=2  -XX:PrefetchThreads=1  
+#-XX:PrefetchNum=16384  -XX:PrefetchSize=1000000 -XX:PrefetchQueueThreshold=0  -XX:G1PrefetchBufferSize=1024
+
+
+### end of MemLiner
+
+
 ## G1
 
 #-XX:+UnlockExperimentalVMOptions
@@ -88,18 +211,24 @@
 #-XX:-G1UseReferencePrecleaning
 
 ## Shenandoah
--XX:+UnlockExperimentalVMOptions
--XX:+UseShenandoahGC
--XX:ShenandoahHeapRegionSize=64M
--XX:ShenandoahMaxRegionSize=64M
--XX:-UseCompressedOops
--XX:MetaspaceSize=268435456
--XX:-ShenandoahConcurrentScanCodeRoots
--Xnoclassgc
--XX:ShenandoahRefProcFrequency=0
--XX:+DisableExplicitGC
--XX:ShenandoahGuaranteedGCInterval=2000000
--XX:+UnlockDiagnosticVMOptions
+#-XX:+UnlockExperimentalVMOptions
+#-XX:+UseShenandoahGC
+#-XX:-UseCompressedOops
+#-XX:MetaspaceSize=268435456
+#-XX:-ShenandoahConcurrentScanCodeRoots
+#-Xnoclassgc
+#-XX:ShenandoahRefProcFrequency=0
+#-XX:+DisableExplicitGC
+#-XX:ShenandoahGuaranteedGCInterval=2000000
+#-XX:+UnlockDiagnosticVMOptions
+## options for baseline at submission
+##-XX:ShenandoahHeapRegionSize=64M
+##-XX:ShenandoahMaxRegionSize=64M
+## options for baseline at ae
+#-XX:ShenandoahHeapRegionSize=1M
+#-XX:ShenandoahMaxRegionSize=1M
+#-XX:ObjectAlignmentInBytes=16
+#-XX:-TieredCompilation
 
 #-XX:ShenandoahMinFreeThreshold=30
 #-XX:+AlwaysPreTouch

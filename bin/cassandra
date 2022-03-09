@@ -70,7 +70,8 @@
 #############
 # MemLiner control
 ############
-ADD_INTO_CGROUP="cgexec  --sticky -g memory:memctl"
+#ADD_INTO_CGROUP="taskset -c 1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31 cgexec --sticky -g memory:memctl-dup"
+ADD_INTO_CGROUP="cgexec --sticky -g memory:memctl"
 
 
 # Unset any grep options that may include `--color=always` per say.
