@@ -27,10 +27,10 @@
 
 ### G1 Settings
 ## Use the Hotspot garbage-first collector.
--XX:+UseG1GC
+#-XX:+UseG1GC
 #-XX:+ParallelRefProcEnabled
 
--XX:-AlwaysPreTouch
+#-XX:-AlwaysPreTouch
 
 #
 ## Have the JVM do less remembered set work during STW, instead
@@ -43,7 +43,7 @@
 
 # Memliner
 # Precent concurrent GC
--XX:G1RSetUpdatingPauseTimePercent=20
+#-XX:G1RSetUpdatingPauseTimePercent=20
 
 #
 ## Main G1GC tunable: lowering the pause target will lower throughput and vise versa.
@@ -57,26 +57,60 @@
 # Memliner  
 # When the memory usage of Old gen reaches the threshold here,
 # a concurrent marking will be triggered.
--XX:-G1UseAdaptiveIHOP
+#-XX:-G1UseAdaptiveIHOP
 #-XX:InitiatingHeapOccupancyPercent=40
 
 # Memliner
 # Simulate the disable GC
 # Trigger a concurrent GC to relcaim the old gen and prevent the Full-GC
--XX:InitiatingHeapOccupancyPercent=85
+#-XX:InitiatingHeapOccupancyPercent=85
 
 # For systems with > 8 cores, the default ParallelGCThreads is 5/8 the number of logical cores.
 # Otherwise equal to the number of cores when 8 or less.
 # Machines with > 10 cores should try setting these to <= full cores.
--XX:ParallelGCThreads=16
+#-XX:ParallelGCThreads=80
 # By default, ConcGCThreads is 1/4 of ParallelGCThreads.
 # Setting both to the same value can reduce STW durations.
-#-XX:ConcGCThreads=16
--XX:ConcGCThreads=4
+#-XX:ConcGCThreads=8
 
--Xms32g
--Xmx32g
+#-Xms32g
+#-Xmx32g
 
+## G1
+
+#-XX:+UnlockExperimentalVMOptions
+#-XX:-UseCompressedOops
+#-XX:MetaspaceSize=268435456
+#-Xnoclassgc
+#-XX:+DisableExplicitGC
+#-XX:+UnlockDiagnosticVMOptions
+#-XX:-G1UseReferencePrecleaning
+
+## Shenandoah
+#-XX:+UnlockExperimentalVMOptions
+#-XX:+UseShenandoahGC
+#-XX:ShenandoahHeapRegionSize=64M
+#-XX:ShenandoahMaxRegionSize=64M
+#-XX:-UseCompressedOops
+#-XX:MetaspaceSize=268435456
+#-XX:-ShenandoahConcurrentScanCodeRoots
+#-Xnoclassgc
+#-XX:ShenandoahRefProcFrequency=0
+#-XX:+DisableExplicitGC
+#-XX:ShenandoahGuaranteedGCInterval=2000000
+#-XX:+UnlockDiagnosticVMOptions
+
+#-XX:ShenandoahMinFreeThreshold=30
+#-XX:+AlwaysPreTouch
+
+## ZGC
+#-XX:+UnlockExperimentalVMOptions
+#-XX:+UseZGC
+#-XX:-UseCompressedOops
+#-XX:MetaspaceSize=268435456
+#-Xnoclassgc
+#-XX:+DisableExplicitGC
+#-XX:+UnlockDiagnosticVMOptions
 
 ### JPMS
 
@@ -109,7 +143,7 @@
 # Notes for Java 8 migration:
 #
 # -XX:+PrintGCDetails                   maps to -Xlog:gc*:... - i.e. add a '*' after "gc"
--XX:+PrintGCDetails
+# -XX:+PrintGCDetails
 # -XX:+PrintGCDateStamps                maps to decorator 'time'
 #
 # -XX:+PrintHeapAtGC                    maps to 'heap' with level 'trace'

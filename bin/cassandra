@@ -70,8 +70,8 @@
 #############
 # MemLiner control
 ############
-ADD_INTO_CGROUP="cgexec  --sticky -g memory:memctl"
-
+#ADD_INTO_CGROUP="cgexec  --sticky -g memory:memctl"
+ADD_INTO_CGROUP=""
 
 # Unset any grep options that may include `--color=always` per say.
 # Using `unset GREP_OPTIONS` will also work on the non-deprecated use case
