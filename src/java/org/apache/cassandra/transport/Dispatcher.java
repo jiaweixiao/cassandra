@@ -31,15 +31,24 @@ import org.apache.cassandra.transport.Flusher.FlushItem;
 import org.apache.cassandra.transport.messages.ErrorMessage;
 import org.apache.cassandra.utils.JVMStabilityInspector;
 
-import static org.apache.cassandra.concurrent.SharedExecutorPool.SHARED;
+// import static org.apache.cassandra.concurrent.SharedExecutorPool.SHARED;
+import org.apache.cassandra.concurrent.JMXEnabledThreadPoolExecutor;
+import org.apache.cassandra.concurrent.NamedThreadFactory;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 public class Dispatcher
 {
-    private static final LocalAwareExecutorService requestExecutor = SHARED.newExecutor(DatabaseDescriptor.getNativeTransportMaxThreads(),
-                                                                                        DatabaseDescriptor::setNativeTransportMaxThreads,
-                                                                                        "transport",
-                                                                                        "Native-Transport-Requests");
-
+    // private static final LocalAwareExecutorService requestExecutor = SHARED.newExecutor(DatabaseDescriptor.getNativeTransportMaxThreads(),
+    //                                                                                     DatabaseDescriptor::setNativeTransportMaxThreads,
+    //                                                                                     "transport",
+    //                                                                                     "Native-Transport-Requests");
+    private static final LocalAwareExecutorService requestExecutor = new JMXEnabledThreadPoolExecutor(DatabaseDescriptor.getNativeTransportMaxThreads(),
+                                                                                                    60,
+                                                                                                    TimeUnit.SECONDS,
+                                                                                                    new LinkedBlockingQueue<>(),
+                                                                                                    new NamedThreadFactory("Native-Transport-Requests"),
+                                                                                                    "transport");
     private static final ConcurrentMap<EventLoop, Flusher> flusherLookup = new ConcurrentHashMap<>();
     private final boolean useLegacyFlusher;
 
