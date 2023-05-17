@@ -179,12 +179,18 @@ public final class NativeLibrary
 
     public static void tryMlockall()
     {
+        try{
+            // Disable pin Heap in memory
+            logger.info(" Disable JNA mlockall successful");
+        }
+        /*
         try
         {
             wrappedLibrary.callMlockall(MCL_CURRENT);
             jnaLockable = true;
             logger.info("JNA mlockall successful");
         }
+        */
         catch (UnsatisfiedLinkError e)
         {
             // this will have already been logged by CLibrary, no need to repeat it
