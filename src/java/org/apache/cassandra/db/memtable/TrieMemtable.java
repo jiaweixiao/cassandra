@@ -177,6 +177,7 @@ public class TrieMemtable extends AbstractShardedMemtable
     @Override
     public void discard()
     {
+        logger.info("discard TrieMemtable.");
         super.discard();
         // metrics here are not thread safe, but I think we can live with that
         metrics.lastFlushShardDataSizes.reset();
@@ -185,10 +186,15 @@ public class TrieMemtable extends AbstractShardedMemtable
             metrics.lastFlushShardDataSizes.update(shard.liveDataSize());
         }
         // the buffer release is a longer-running process, do it in a separate loop to not make the metrics update wait
+        // int i = 0;
+        long totalReclaimedOnHeapBytes = 0;
         for (MemtableShard shard : shards)
         {
-            shard.data.discardBuffers();
+            // logger.info("discard buffer of shard {}.", i++);
+            totalReclaimedOnHeapBytes += shard.data.discardBuffers();
         }
+        logger.info("Total reclaimed on-heap buffers Bytes {} ({} * 4KB).",
+            totalReclaimedOnHeapBytes, totalReclaimedOnHeapBytes >> 12);
     }
 
     /**

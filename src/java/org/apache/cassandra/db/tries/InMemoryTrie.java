@@ -17,6 +17,7 @@
  */
 package org.apache.cassandra.db.tries;
 
+import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -34,6 +35,8 @@ import org.apache.cassandra.utils.bytecomparable.ByteComparable;
 import org.apache.cassandra.utils.ObjectSizes;
 
 import org.github.jamm.MemoryMeterStrategy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * In-memory trie built for fast modification and reads executing concurrently with writes from a single mutator thread.
@@ -48,6 +51,8 @@ import org.github.jamm.MemoryMeterStrategy;
 public class InMemoryTrie<T> extends InMemoryReadTrie<T>
 {
     // See the trie format description in InMemoryReadTrie.
+
+    private static final Logger logger = LoggerFactory.getLogger(InMemoryTrie.class);
 
     /**
      * Trie size limit. This is not enforced, but users must check from time to time that it is not exceeded (using
@@ -183,16 +188,52 @@ public class InMemoryTrie<T> extends InMemoryReadTrie<T>
         array.set(ofs, value);
     }
 
-    public void discardBuffers()
+    public long discardBuffers()
     {
         if (bufferType == BufferType.ON_HEAP)
-            return; // no cleaning needed
+        {
+            // Reclaim on-heap buffers for cleanup
+            long totalReclaimedBytes = 0;
+            for (UnsafeBuffer b : buffers)
+            {
+                if (b != null)
+                {
+                    ByteBuffer buffer = b.byteBuffer();
+                    if (buffer != null && buffer.hasArray())
+                    {
+                        byte[] array = buffer.array();
+                        int offset = buffer.arrayOffset();
+                        int length = buffer.capacity();
+                        // Reclaim the entire underlying array
+                        if (offset == 0 && length >= 4096)
+                            {
+                            // Avoid get length from array.length, which will access object header.
+                            // logger.info("Reclaim on-heap buffer {}, len {}", array.toString(), length);
+                            // // Debug by zeroing buffer
+                            // Arrays.fill(array, offset, offset + length, (byte) 0);
+                            // Custom reflection that reclaims the primitive array.
+                            try {
+                                // Array.reclaim(array);
+                                Array.reclaimLen(array, length);
+                                totalReclaimedBytes += length;
+                            } catch (Exception e) {
+                                // Ignore
+                            }
+                        }
+                    }
+                }
+            }
+            // logger.info("Reclaim on-heap buffers totalBytes {} ({} * 4KB)",
+            //     totalReclaimedBytes, totalReclaimedBytes >> 12);
+            return totalReclaimedBytes;
+        }
 
         for (UnsafeBuffer b : buffers)
         {
             if (b != null)
                 FileUtils.clean(b.byteBuffer());
         }
+        return 0;
     }
 
     // Write methods
@@ -702,8 +743,10 @@ public class InMemoryTrie<T> extends InMemoryReadTrie<T>
                 if (existingContentIndex != -1)
                 {
                     final T existingContent = getContent(existingContentIndex);
+                    // returns the new merged BTreePartitionData (without stale data)
                     T combinedContent = transformer.apply(existingContent, mutationContent);
                     assert (combinedContent != null) : "Transformer cannot be used to remove content.";
+                    // Replaces the old value with the new one
                     setContent(existingContentIndex, combinedContent);
                     return existingContentIndex;
                 }
@@ -927,6 +970,7 @@ public class InMemoryTrie<T> extends InMemoryReadTrie<T>
         if (isLeaf(node))
         {
             int contentIndex = ~node;
+            // Replaces the old value with the new one
             setContent(contentIndex, transformer.apply(getContent(contentIndex), value));
             return node;
         }
@@ -934,6 +978,7 @@ public class InMemoryTrie<T> extends InMemoryReadTrie<T>
         if (offset(node) == PREFIX_OFFSET)
         {
             int contentIndex = getInt(node + PREFIX_CONTENT_OFFSET);
+            // Replaces the old value with the new one
             setContent(contentIndex, transformer.apply(getContent(contentIndex), value));
             return node;
         }

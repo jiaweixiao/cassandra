@@ -18,6 +18,7 @@
 package org.apache.cassandra.db.memtable;
 
 import java.nio.ByteBuffer;
+// import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentNavigableMap;
@@ -28,7 +29,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
+// import org.apache.cassandra.config.Config;
+// import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.BufferDecoratedKey;
 import org.apache.cassandra.db.DataRange;
 import org.apache.cassandra.db.DecoratedKey;
@@ -44,7 +46,11 @@ import org.apache.cassandra.db.partitions.BTreePartitionUpdater;
 import org.apache.cassandra.db.partitions.Partition;
 import org.apache.cassandra.db.partitions.PartitionUpdate;
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterator;
+// import org.apache.cassandra.db.rows.Cell;
+// import org.apache.cassandra.db.rows.BufferCell;
 import org.apache.cassandra.db.rows.UnfilteredRowIterator;
+// import org.apache.cassandra.db.rows.Row;
+// import org.apache.cassandra.db.rows.Unfiltered;
 import org.apache.cassandra.dht.AbstractBounds;
 import org.apache.cassandra.dht.Bounds;
 import org.apache.cassandra.dht.IncludingExcludingBounds;
@@ -96,6 +102,132 @@ public class SkipListMemtable extends AbstractAllocatorMemtable
     {
         return partitions.isEmpty();
     }
+
+    // WIP: Zeroing the backing byte buffer will fail to response YCSB requests
+    // @Override
+    // public void discard()
+    // {
+    //     super.discard();
+
+    //     // Only zero if using heap buffers
+    //     if (DatabaseDescriptor.getMemtableAllocationType() == Config.MemtableAllocationType.heap_buffers ||
+    //         DatabaseDescriptor.getMemtableAllocationType() == Config.MemtableAllocationType.unslabbed_heap_buffers ||
+    //         DatabaseDescriptor.getMemtableAllocationType() == Config.MemtableAllocationType.unslabbed_heap_buffers_logged)
+    //     {
+    //         zeroAndLogHeapBuffers();
+    //         logger.info("Reclaim on-heap buffers");
+    //     }
+    // }
+
+    // private void zeroAndLogHeapBuffers()
+    // {
+    //     long totalZeroedBytes = 0;
+    //     int partitionCount = 0;
+    //     int cellCount = 0;
+    //     int keyCount = 0;
+
+    //     for (Map.Entry<PartitionPosition, AtomicBTreePartition> entry : partitions.entrySet())
+    //     {
+    //         // PartitionPosition key = entry.getKey();
+    //         AtomicBTreePartition partition = entry.getValue();
+
+    //         // Iterate through all rows in the partition
+    //         try (UnfilteredRowIterator rowIter = partition.unfilteredIterator())
+    //         {
+    //             int rowIndex = 0;
+    //             while (rowIter.hasNext())
+    //             {
+    //                 Unfiltered tmp = rowIter.next();
+    //                 if (!tmp.isRow())
+    //                     continue;
+    //                 Row row = (Row)(tmp);
+
+    //                 // Zero static row cells
+    //                 if (row.isStatic())
+    //                 {
+    //                     for (Cell<?> cell : row.cells())
+    //                     {
+    //                         if (cell instanceof BufferCell)
+    //                         {
+    //                             BufferCell bufferCell = (BufferCell) cell;
+    //                             ByteBuffer cellValue = bufferCell.value();
+    //                             if (cellValue != null && cellValue.hasArray())
+    //                             {
+    //                                 long zeroed = zeroByteBuffer(cellValue,
+    //                                     String.format("StaticCell[partition=%d,row=%d,column=%s]", partitionCount, rowIndex, cell.column().name));
+    //                                 totalZeroedBytes += zeroed;
+    //                                 cellCount++;
+    //                             }
+    //                         }
+    //                     }
+    //                 }
+    //                 else
+    //                 {
+    //                     // Zero regular row cells
+    //                     for (Cell<?> cell : row.cells())
+    //                     {
+    //                         if (cell instanceof BufferCell)
+    //                         {
+    //                             BufferCell bufferCell = (BufferCell) cell;
+    //                             ByteBuffer cellValue = bufferCell.value();
+    //                             if (cellValue != null && cellValue.hasArray())
+    //                             {
+    //                                 long zeroed = zeroByteBuffer(cellValue,
+    //                                     String.format("Cell[partition=%d,row=%d,column=%s]", partitionCount, rowIndex, cell.column().name));
+    //                                 totalZeroedBytes += zeroed;
+    //                                 cellCount++;
+    //                             }
+    //                         }
+    //                     }
+    //                 }
+    //                 rowIndex++;
+    //             }
+    //         }
+    //         catch (Exception e)
+    //         {
+    //             logger.warn("Error iterating partition {} during buffer zeroing", partitionCount, e);
+    //         }
+            
+    //         partitionCount++;
+    //     }
+
+    //     // // Summary logging
+    //     // logger.info("Reclaim heap ByteBuffers in SkipListMemtable: " +
+    //     //             "partitions={}, keys={}, cells={}, totalBytes={} ({} MB)",
+    //     //             partitionCount, keyCount, cellCount, totalZeroedBytes, 
+    //     //             totalZeroedBytes / (1024 * 1024));
+    // }
+
+    // private long zeroByteBuffer(ByteBuffer buffer, String context)
+    // {
+    //     if (buffer == null || !buffer.hasArray())
+    //         return 0;
+            
+    //     // Capture state
+    //     int capacity = buffer.capacity();
+    //     int position = buffer.position();
+    //     int limit = buffer.limit();
+    //     int arrayOffset = buffer.arrayOffset();
+    //     byte[] array = buffer.array();
+    //     int arrayLength = array.length;
+    //     int arrayIdentityHash = System.identityHashCode(array);
+    //     int bufferIdentityHash = System.identityHashCode(buffer);
+        
+    //     // Zero the buffer
+    //     Arrays.fill(array, arrayOffset, arrayOffset + capacity, (byte) 0);
+
+    //     // logger.info("Reclaim {}: " +
+    //     //             "state=[pos={}, limit={}, cap={}], " +
+    //     //             "backingArray=[offset={}, length={}, identityHash=0x{}], " +
+    //     //             "bufferIdentityHash=0x{}, zeroedBytes={}",
+    //     //             context,
+    //     //             position, limit, capacity,
+    //     //             arrayOffset, arrayLength, Integer.toHexString(arrayIdentityHash),
+    //     //             Integer.toHexString(bufferIdentityHash),
+    //     //             capacity);
+        
+    //     return capacity;
+    // }
 
     /**
      * Should only be called by ColumnFamilyStore.apply via Keyspace.apply, which supplies the appropriate
